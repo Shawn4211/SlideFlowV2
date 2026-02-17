@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+// import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
@@ -80,6 +80,7 @@ interface Slide {
   name: string;
   elements: SlideElement[];
   backgroundColor: string;
+  backgroundImage?: string;
   duration: number;
 }
 
@@ -162,9 +163,13 @@ export default function SlideEditorPage() {
   const [isPexelsLoading, setIsPexelsLoading] = useState(false);
 
   // Templates
+  // Templates (Placeholder for API integration)
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [isTemplatesLoading, setIsTemplatesLoading] = useState(false);
+  // const [templates, setTemplates] = useState<any[]>([]);
+  // const [isTemplatesLoading, setIsTemplatesLoading] = useState(false);
+  // const [templateGenres, setTemplateGenres] = useState<string[]>([]);
+  const [selectedGenre, setSelectedGenre] = useState("All");
+  const [templateSearch, setTemplateSearch] = useState("");
 
   const currentSlide = slides[currentSlideIndex];
 
@@ -417,22 +422,12 @@ export default function SlideEditorPage() {
     setIsPexelsLoading(false);
   };
 
-  // Load templates
-  const loadTemplates = async () => {
-    setIsTemplatesLoading(true);
-    try {
-      const mockTemplates = [
-        { id: "1", name: "Business Card", thumbnail: "https://via.placeholder.com/300x200/4F46E5/ffffff?text=Business+Card" },
-        { id: "2", name: "Social Media Post", thumbnail: "https://via.placeholder.com/300x200/10B981/ffffff?text=Social+Media" },
-        { id: "3", name: "Presentation Slide", thumbnail: "https://via.placeholder.com/300x200/F59E0B/ffffff?text=Presentation" },
-        { id: "4", name: "Flyer", thumbnail: "https://via.placeholder.com/300x200/EF4444/ffffff?text=Flyer" },
-        { id: "5", name: "Poster", thumbnail: "https://via.placeholder.com/300x200/8B5CF6/ffffff?text=Poster" },
-      ];
-      setTemplates(mockTemplates);
-    } catch (error) {
-      console.error("Error loading templates:", error);
-    }
-    setIsTemplatesLoading(false);
+  // Load templates (Placeholder)
+  const loadTemplates = async (genre?: string, search?: string) => {
+    console.log("Template API integration pending...");
+    // setIsTemplatesLoading(true);
+    // ... implementation removed ...
+    // setIsTemplatesLoading(false);
   };
 
   // Handle file upload
@@ -1083,6 +1078,13 @@ export default function SlideEditorPage() {
                         {/* Render slide elements as thumbnails */}
                         <div className="absolute inset-0" style={{ transform: "scale(0.25)", transformOrigin: "top left" }}>
                           <div className="relative w-[960px] h-[540px]">
+                            {slide.backgroundImage && (
+                              <img
+                                src={slide.backgroundImage}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-cover z-0"
+                              />
+                            )}
                             {slide.elements.map((element) => (
                               <div
                                 key={element.id}
@@ -1173,6 +1175,13 @@ export default function SlideEditorPage() {
               }}
               onClick={() => setSelectedElement(null)}
             >
+              {currentSlide.backgroundImage && (
+                <img
+                  src={currentSlide.backgroundImage}
+                  alt="Background"
+                  className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none z-0"
+                />
+              )}
               {currentSlide.elements.map((element) => (
                 <div
                   key={element.id}
@@ -1499,6 +1508,8 @@ export default function SlideEditorPage() {
                           onChange={(e) => {
                             const newSlides = [...slides];
                             newSlides[currentSlideIndex].backgroundColor = e.target.value;
+                            // Clear background image if color is explicitly set
+                            newSlides[currentSlideIndex].backgroundImage = undefined;
                             setSlides(newSlides);
                           }}
                           className="w-12 h-8 p-1"
@@ -1509,6 +1520,8 @@ export default function SlideEditorPage() {
                           onChange={(e) => {
                             const newSlides = [...slides];
                             newSlides[currentSlideIndex].backgroundColor = e.target.value;
+                            // Clear background image if color is explicitly set
+                            newSlides[currentSlideIndex].backgroundImage = undefined;
                             setSlides(newSlides);
                           }}
                           className={`flex-1 h-8 text-xs ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : ''}`}
@@ -1591,41 +1604,52 @@ export default function SlideEditorPage() {
 
         {/* Templates Dialog */}
         <Dialog open={isTemplatesOpen} onOpenChange={setIsTemplatesOpen}>
-          <DialogContent className={`max-w-4xl max-h-[80vh] ${darkMode ? 'bg-gray-900 border-gray-700' : ''}`}>
+          <DialogContent className={`max-w-5xl max-h-[85vh] ${darkMode ? 'bg-gray-900 border-gray-700' : ''}`}>
             <DialogHeader>
               <DialogTitle className={darkMode ? 'text-white' : ''}>Templates</DialogTitle>
-              <DialogDescription className={darkMode ? 'text-gray-400' : ''}>Choose a template for your slide</DialogDescription>
+              <DialogDescription className={darkMode ? 'text-gray-400' : ''}>Browse templates via API (coming soon)</DialogDescription>
             </DialogHeader>
-            <ScrollArea className="h-[400px]">
-              {isTemplatesLoading ? (
-                <div className="flex items-center justify-center h-32">
-                  <p className={darkMode ? 'text-gray-400' : 'text-muted-foreground'}>Loading templates...</p>
+
+            {/* Search and Filter Bar */}
+            <div className="flex gap-3 items-center">
+              <div className="relative flex-1">
+                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`} />
+                <Input
+                  placeholder="Search templates..."
+                  value={templateSearch}
+                  onChange={(e) => {
+                    setTemplateSearch(e.target.value);
+                    loadTemplates(selectedGenre, e.target.value);
+                  }}
+                  className={`pl-9 ${darkMode ? 'editor-input' : ''}`}
+                />
+              </div>
+              <select
+                value={selectedGenre}
+                onChange={(e) => {
+                  setSelectedGenre(e.target.value);
+                  loadTemplates(e.target.value, templateSearch);
+                }}
+                className={`h-9 rounded-md border px-3 text-sm min-w-[160px] ${darkMode
+                  ? 'bg-gray-800 border-gray-600 text-white'
+                  : 'bg-white border-input'
+                  }`}
+              >
+                <option value="All">All Genres</option>
+                {/* {templateGenres.map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))} */}
+              </select>
+            </div>
+
+            <ScrollArea className="h-[500px]">
+              {/* Template list removed. Pending API integration. */}
+              <div className="flex items-center justify-center h-64 border-2 border-dashed rounded-lg">
+                <div className="text-center">
+                  <LayoutTemplate className={`h-12 w-12 mx-auto mb-3 ${darkMode ? 'text-gray-600' : 'text-gray-300'}`} />
+                  <p className={darkMode ? 'text-gray-400' : 'text-muted-foreground'}>Templates will be loaded from external API.</p>
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  {templates.map((template) => (
-                    <Card
-                      key={template.id}
-                      className={`cursor-pointer hover:ring-2 hover:ring-blue-500 ${darkMode ? 'editor-panel hover:border-blue-500' : ''
-                        }`}
-                      onClick={() => {
-                        setIsTemplatesOpen(false);
-                      }}
-                    >
-                      <div className="aspect-video relative">
-                        <img
-                          src={template.thumbnail}
-                          alt={template.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="p-3">
-                        <p className={`font-medium ${darkMode ? 'text-white' : ''}`}>{template.name}</p>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
+              </div>
             </ScrollArea>
           </DialogContent>
         </Dialog>
