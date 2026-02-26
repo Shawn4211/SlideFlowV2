@@ -140,6 +140,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useParticles(canvasRef);
 
@@ -373,7 +378,7 @@ export default function LoginPage() {
         }
       `}</style>
 
-      <div className="lp">
+      <div className={`lp${mounted ? " hydrated" : ""}`}>
         <canvas ref={canvasRef} className="lp-canvas" />
 
         <div className="lp-content">

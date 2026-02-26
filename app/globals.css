@@ -124,3 +124,17 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Login page: prevent flash of unstyled content (FOUC) */
+/* These styles load server-side before JS hydration */
+.lp {
+  min-height: 100vh;
+  background: #080c14;
+}
+.lp .lp-content {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.lp.hydrated .lp-content {
+  opacity: 1;
+}
