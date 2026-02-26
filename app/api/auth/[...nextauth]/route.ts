@@ -1,31 +1,24 @@
 import NextAuth from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
 
 export const authOptions = {
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+        if (!credentials?.username || !credentials?.password) {
           return null;
         }
 
-        // Mock authentication - database not connected as per user request
-        // In production, this would check against the database
-        if (credentials.email === "admin@slideflow.com" && credentials.password === "password") {
+        // Single admin user authentication
+        if (credentials.username === "Admin" && credentials.password === "Password1") {
           return {
             id: "1",
-            email: credentials.email,
+            email: "admin@slideflow.app",
             name: "Admin User",
           };
         }

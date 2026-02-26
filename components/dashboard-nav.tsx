@@ -8,6 +8,7 @@ import {
   Monitor,
   Images,
   Calendar,
+  Tv2,
   Settings,
 } from "lucide-react";
 
@@ -31,6 +32,11 @@ const navItems = [
     title: "Schedules",
     href: "/dashboard/schedules",
     icon: Calendar,
+  },
+  {
+    title: "Display",
+    href: "/dashboard/display",
+    icon: Tv2,
   },
   {
     title: "Settings",

@@ -23,6 +23,7 @@ import {
   Square,
   Circle,
   Triangle,
+  Shapes,
   Play,
   Save,
   Undo,
@@ -151,6 +152,8 @@ export default function SlideEditorPage() {
   const [showLeftPanel, setShowLeftPanel] = useState(true);
   const [showRightPanel, setShowRightPanel] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  const [showShapesMenu, setShowShapesMenu] = useState(false);
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
 
   // History for undo/redo
   const [history, setHistory] = useState<HistoryState[]>([]);
@@ -523,10 +526,16 @@ export default function SlideEditorPage() {
   const handleMouseDown = (e: React.MouseEvent, elementId: string) => {
     // Don't drag if clicking on resize handles
     if ((e.target as HTMLElement).dataset.resizeHandle) return;
+    // Don't drag if we're actively editing this text element
+    if (editingTextId === elementId) return;
 
     e.preventDefault();
     e.stopPropagation();
     setSelectedElement(elementId);
+    // Exit text editing if we click a different element
+    if (editingTextId && editingTextId !== elementId) {
+      setEditingTextId(null);
+    }
     setIsDragging(true);
 
     const element = currentSlide.elements.find((el) => el.id === elementId);
@@ -977,32 +986,67 @@ export default function SlideEditorPage() {
                 </div>
 
                 <div className="grid grid-cols-4 gap-2 mt-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" size="icon" onClick={() => addShape("rect")} className={darkMode ? 'border-white hover:bg-gray-800' : ''}>
-                        <Square className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Rectangle</TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" size="icon" onClick={() => addShape("circle")} className={darkMode ? 'border-white hover:bg-gray-800' : ''}>
-                        <Circle className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Circle</TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" size="icon" onClick={() => addShape("triangle")} className={darkMode ? 'border-white hover:bg-gray-800' : ''}>
-                        <Triangle className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Triangle</TooltipContent>
-                  </Tooltip>
+                  <div className="relative">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setShowShapesMenu(!showShapesMenu)}
+                          className={darkMode ? 'border-white hover:bg-gray-800' : ''}
+                        >
+                          <Shapes className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Shapes</TooltipContent>
+                    </Tooltip>
+                    {showShapesMenu && (
+                      <div
+                        className={`absolute left-0 top-10 z-50 rounded-lg border p-2 shadow-xl flex gap-1 ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-200'
+                          }`}
+                      >
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={`h-9 w-9 ${darkMode ? 'hover:bg-gray-700' : ''}`}
+                              onClick={() => { addShape("rect"); setShowShapesMenu(false); }}
+                            >
+                              <Square className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Rectangle</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={`h-9 w-9 ${darkMode ? 'hover:bg-gray-700' : ''}`}
+                              onClick={() => { addShape("circle"); setShowShapesMenu(false); }}
+                            >
+                              <Circle className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Circle</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={`h-9 w-9 ${darkMode ? 'hover:bg-gray-700' : ''}`}
+                              onClick={() => { addShape("triangle"); setShowShapesMenu(false); }}
+                            >
+                              <Triangle className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Triangle</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    )}
+                  </div>
 
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -1173,7 +1217,7 @@ export default function SlideEditorPage() {
                 height: `${540 * (zoom / 100)}px`,
                 backgroundColor: currentSlide.backgroundColor,
               }}
-              onClick={() => setSelectedElement(null)}
+              onClick={() => { setSelectedElement(null); setEditingTextId(null); setShowShapesMenu(false); }}
             >
               {currentSlide.backgroundImage && (
                 <img
@@ -1213,7 +1257,7 @@ export default function SlideEditorPage() {
                 >
                   {element.type === "text" && (
                     <div
-                      className="w-full h-full flex items-start outline-none overflow-hidden"
+                      className={`w-full h-full flex items-start outline-none overflow-hidden ${editingTextId === element.id ? 'cursor-text' : 'cursor-grab'}`}
                       style={{
                         justifyContent: element.style.textAlign === "center" ? "center" : element.style.textAlign === "right" ? "flex-end" : "flex-start",
                         textDecoration: element.style.textDecoration,
@@ -1222,19 +1266,23 @@ export default function SlideEditorPage() {
                         whiteSpace: "normal",
                         lineHeight: "1.4",
                       }}
-                      contentEditable={selectedElement === element.id}
+                      contentEditable={editingTextId === element.id}
                       suppressContentEditableWarning
                       onMouseDown={(e) => {
-                        if (selectedElement === element.id) {
+                        // Only stop propagation if we're in text editing mode
+                        if (editingTextId === element.id) {
                           e.stopPropagation();
                         }
+                        // Otherwise let it bubble up to the parent drag handler
                       }}
                       onDoubleClick={(e) => {
                         e.stopPropagation();
                         setSelectedElement(element.id);
+                        setEditingTextId(element.id);
                       }}
                       onBlur={(e) => {
                         updateElement(element.id, { content: e.currentTarget.textContent || "" });
+                        setEditingTextId(null);
                         saveToHistory(slides, currentSlideIndex);
                       }}
                     >

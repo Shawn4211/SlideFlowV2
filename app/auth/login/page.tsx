@@ -1,61 +1,167 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import Link from "next/link";
+import { User, Lock } from "lucide-react";
 
+const ADMIN_EMAIL = "admin@slideflow.app";
+
+/* ───────── Particle System ───────── */
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  opacity: number;
+  pulse: number;
+  pulseSpeed: number;
+}
+
+function useParticles(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animId: number;
+    let mouse = { x: -1000, y: -1000 };
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const onMouseMove = (e: MouseEvent) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    };
+    window.addEventListener("mousemove", onMouseMove);
+
+    // Create particles
+    const count = 120;
+    const particles: Particle[] = [];
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        size: Math.random() * 2 + 0.5,
+        opacity: Math.random() * 0.5 + 0.15,
+        pulse: Math.random() * Math.PI * 2,
+        pulseSpeed: Math.random() * 0.02 + 0.005,
+      });
+    }
+
+    const connectionDist = 150;
+
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+
+        // Pulse glow
+        p.pulse += p.pulseSpeed;
+        const glow = Math.sin(p.pulse) * 0.2 + 0.8;
+
+        // Mouse repel
+        const dx = p.x - mouse.x;
+        const dy = p.y - mouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 120) {
+          const force = (120 - dist) / 120 * 0.8;
+          p.vx += (dx / dist) * force;
+          p.vy += (dy / dist) * force;
+        }
+
+        // Damping
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+
+        // Move
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Wrap
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
+
+        // Draw particle
+        const alpha = p.opacity * glow;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.fill();
+
+        // Connections
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const cx = p.x - p2.x;
+          const cy = p.y - p2.y;
+          const cd = Math.sqrt(cx * cx + cy * cy);
+          if (cd < connectionDist) {
+            const lineAlpha = (1 - cd / connectionDist) * 0.12;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${lineAlpha})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+
+      animId = requestAnimationFrame(draw);
+    };
+
+    draw();
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", onMouseMove);
+    };
+  }, [canvasRef]);
+}
+
+/* ───────── Login Page ───────── */
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useParticles(canvasRef);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
+    if (username !== "Admin") {
+      setError("Invalid username or password");
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
+        email: ADMIN_EMAIL,
         password,
       });
 
       if (authError) {
-        // Check if the error is about email not confirmed
-        if (authError.message.includes("Email not confirmed")) {
-          // Auto-confirm by resending and immediately signing in
-          const { error: resendError } = await supabase.auth.resend({
-            type: 'signup',
-            email: email,
-          });
-          
-          if (!resendError) {
-            // Try signing in again after resending
-            const { error: retryError } = await supabase.auth.signInWithPassword({
-              email,
-              password,
-            });
-            
-            if (retryError) {
-              setError(retryError.message);
-            } else {
-              router.push("/dashboard");
-              router.refresh();
-            }
-          } else {
-            setError(authError.message);
-          }
-        } else {
-          setError(authError.message);
-        }
+        setError("Invalid username or password");
       } else {
         router.push("/dashboard");
         router.refresh();
@@ -67,104 +173,241 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-      },
-    });
-    if (error) {
-      setError(error.message);
-    }
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
-          <CardDescription className="text-center">
-            Sign in to your SlideFlow account
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleGoogleSignIn}
-          >
-            <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-              <path
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                fill="#4285F4"
-              />
-              <path
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                fill="#34A853"
-              />
-              <path
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                fill="#FBBC05"
-              />
-              <path
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                fill="#EA4335"
-              />
-            </svg>
-            Continue with Google
-          </Button>
+    <>
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap');
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <Separator className="w-full" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Or continue with email
-              </span>
-            </div>
-          </div>
+        body { margin: 0; padding: 0; }
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="name@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            {error && (
-              <div className="text-sm text-red-600 text-center">{error}</div>
-            )}
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in..." : "Sign in"}
-            </Button>
-          </form>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-2">
-          <div className="text-sm text-center text-muted-foreground">
-            Don&apos;t have an account?{" "}
-            <Link href="/auth/register" className="text-primary hover:underline">
-              Sign up
-            </Link>
+        .lp {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          overflow: hidden;
+          background: radial-gradient(ellipse at 30% 50%, #0f1724 0%, #080c14 50%, #04060a 100%);
+          font-family: 'Outfit', sans-serif;
+        }
+
+        /* ---- Particle canvas ---- */
+        .lp-canvas {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+        }
+
+        /* ---- Content wrapper ---- */
+        .lp-content {
+          position: relative;
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          width: 100%;
+          max-width: 400px;
+          margin: 1rem;
+        }
+
+        /* ---- SlideFlow brand ---- */
+        .lp-brand {
+          font-family: 'Outfit', sans-serif;
+          font-weight: 900;
+          font-size: 3.4rem;
+          letter-spacing: -0.03em;
+          color: #fff;
+          text-align: center;
+          margin: 0 0 2rem;
+          text-shadow:
+            0 0 40px rgba(100, 160, 255, 0.2),
+            0 0 80px rgba(80, 140, 255, 0.08);
+          line-height: 1.1;
+          user-select: none;
+        }
+
+        /* ---- Glass Card ---- */
+        .lp-card {
+          width: 100%;
+          padding: 2.2rem 2rem 1.8rem;
+          background: linear-gradient(
+            135deg,
+            rgba(255,255,255,0.07) 0%,
+            rgba(255,255,255,0.03) 50%,
+            rgba(255,255,255,0.05) 100%
+          );
+          backdrop-filter: blur(20px) saturate(1.4);
+          -webkit-backdrop-filter: blur(20px) saturate(1.4);
+          border-radius: 16px;
+          border: 1px solid rgba(255,255,255,0.1);
+          box-shadow:
+            0 10px 40px rgba(0,0,0,0.4),
+            inset 0 1px 0 rgba(255,255,255,0.08);
+        }
+
+        .lp-title {
+          font-family: 'Outfit', sans-serif;
+          font-weight: 700;
+          font-size: 1.6rem;
+          color: #fff;
+          text-align: center;
+          margin: 0 0 1.5rem;
+          letter-spacing: -0.01em;
+        }
+
+        .lp-ig {
+          position: relative;
+          margin-bottom: 0.9rem;
+        }
+
+        .lp-ic-l {
+          position: absolute;
+          left: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: rgba(255,255,255,0.3);
+          width: 15px; height: 15px;
+          pointer-events: none;
+        }
+
+        .lp-ic-r {
+          position: absolute;
+          right: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: rgba(255,255,255,0.12);
+          width: 14px; height: 14px;
+          pointer-events: none;
+        }
+
+        .lp-input {
+          width: 100%;
+          padding: 11px 38px;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: 8px;
+          color: #fff;
+          font-family: 'Outfit', sans-serif;
+          font-size: 0.88rem;
+          outline: none;
+          transition: all 0.2s ease;
+          box-sizing: border-box;
+        }
+
+        .lp-input::placeholder {
+          color: rgba(255,255,255,0.25);
+          font-size: 0.85rem;
+        }
+
+        .lp-input:focus {
+          border-color: rgba(100,160,255,0.4);
+          background: rgba(255,255,255,0.08);
+          box-shadow: 0 0 0 2px rgba(100,160,255,0.1);
+        }
+
+        .lp-row {
+          display: flex;
+          align-items: center;
+          margin: 0.4rem 0 1rem;
+          font-size: 0.78rem;
+          font-family: 'Outfit', sans-serif;
+          color: rgba(255,255,255,0.4);
+        }
+        .lp-row label {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          cursor: pointer;
+          user-select: none;
+        }
+        .lp-row input[type="checkbox"] {
+          width: 13px; height: 13px;
+          accent-color: rgba(100,160,255,0.8);
+          cursor: pointer;
+        }
+
+        .lp-error {
+          color: #ff6b6b;
+          font-size: 0.8rem;
+          text-align: center;
+          margin-bottom: 0.6rem;
+          font-family: 'Outfit', sans-serif;
+        }
+
+        .lp-btn {
+          width: 100%;
+          padding: 12px;
+          background: #fff;
+          border: none;
+          border-radius: 10px;
+          color: #0a0a14;
+          font-family: 'Outfit', sans-serif;
+          font-size: 0.92rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+          letter-spacing: 0.2px;
+        }
+
+        .lp-btn:hover {
+          background: #e8eeff;
+          box-shadow: 0 6px 25px rgba(0,0,0,0.3);
+          transform: translateY(-1px);
+        }
+        .lp-btn:active { transform: translateY(0); }
+        .lp-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        @media (max-width: 480px) {
+          .lp-brand {
+            font-size: 2.4rem;
+            margin-bottom: 1.2rem;
+          }
+          .lp-content {
+            margin: 1rem 0.8rem;
+          }
+        }
+      `}</style>
+
+      <div className="lp">
+        <canvas ref={canvasRef} className="lp-canvas" />
+
+        <div className="lp-content">
+          <h1 className="lp-brand">SlideFlow</h1>
+
+          <div className="lp-card">
+            <h2 className="lp-title">Login</h2>
+
+            <form onSubmit={handleSubmit}>
+              <div className="lp-ig">
+                <User className="lp-ic-l" />
+                <input type="text" className="lp-input" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} required />
+                <User className="lp-ic-r" />
+              </div>
+
+              <div className="lp-ig">
+                <Lock className="lp-ic-l" />
+                <input type="password" className="lp-input" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <Lock className="lp-ic-r" />
+              </div>
+
+              <div className="lp-row">
+                <label><input type="checkbox" defaultChecked /> Remember me</label>
+              </div>
+
+              {error && <div className="lp-error">{error}</div>}
+
+              <button type="submit" className="lp-btn" disabled={isLoading}>
+                {isLoading ? "Signing in..." : "Login"}
+              </button>
+            </form>
           </div>
-        </CardFooter>
-      </Card>
-    </div>
+        </div>
+      </div>
+    </>
   );
 }
