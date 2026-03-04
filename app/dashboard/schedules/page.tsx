@@ -133,17 +133,33 @@ export default function SchedulesPage() {
     setIsCreateOpen(true);
   };
 
+  // Convert a UTC/ISO timestamp to a local datetime-local string (YYYY-MM-DDTHH:MM)
+  const toLocalDatetimeString = (iso: string) => {
+    const d = new Date(iso);
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  // Convert a local datetime-local string to a proper ISO string with timezone
+  const toISOFromLocal = (localStr: string) => {
+    return new Date(localStr).toISOString();
+  };
+
   const openEdit = (show: Show) => {
     setFormName(show.name);
     setFormContentId(show.content_id?.toString() || "");
-    setFormStart(show.start_time ? show.start_time.slice(0, 16) : "");
-    setFormFinish(show.finish_time ? show.finish_time.slice(0, 16) : "");
+    setFormStart(show.start_time ? toLocalDatetimeString(show.start_time) : "");
+    setFormFinish(show.finish_time ? toLocalDatetimeString(show.finish_time) : "");
     setEditingShowId(show.id);
     setIsCreateOpen(true);
   };
 
   const handleSave = async () => {
     if (!formStart || !formFinish) return;
+
+    // Convert local datetime-local values to proper ISO strings
+    const isoStart = toISOFromLocal(formStart);
+    const isoFinish = toISOFromLocal(formFinish);
 
     // If scheduling an existing show, update it with the schedule times
     if (formExistingShowId) {
@@ -154,8 +170,8 @@ export default function SchedulesPage() {
           body: JSON.stringify({
             id: parseInt(formExistingShowId, 10),
             name: formName || undefined,
-            startTime: formStart,
-            finishTime: formFinish,
+            startTime: isoStart,
+            finishTime: isoFinish,
           }),
         });
         if (res.ok) {
@@ -172,8 +188,8 @@ export default function SchedulesPage() {
 
     const body: any = {
       name: formName || "Untitled Schedule",
-      startTime: formStart,
-      finishTime: formFinish,
+      startTime: isoStart,
+      finishTime: isoFinish,
     };
 
     if (editingShowId) body.id = editingShowId;
