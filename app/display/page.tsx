@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, X, Play, Pause } from "lucide-react";
@@ -70,8 +70,26 @@ export default function DisplayPage() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [showControls, setShowControls] = useState(true);
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentSlide = slides[currentSlideIndex] || slides[0];
+
+  // Auto-hide controls after mouse inactivity
+  const resetHideTimer = useCallback(() => {
+    setShowControls(true);
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+  }, []);
+
+  // Start the hide timer on mount
+  useEffect(() => {
+    resetHideTimer();
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, [resetHideTimer]);
 
   // Load slides from localStorage on mount
   useEffect(() => {
@@ -111,7 +129,7 @@ export default function DisplayPage() {
   // Auto-advance slides
   useEffect(() => {
     if (!isPlaying || slides.length <= 1) return;
-    
+
     const timer = setInterval(() => {
       setCurrentSlideIndex((prev) => (prev + 1) % slides.length);
     }, currentSlide.duration * 1000);
@@ -190,7 +208,8 @@ export default function DisplayPage() {
   return (
     <div
       className="w-screen h-screen overflow-hidden relative bg-black"
-      onMouseMove={() => setShowControls(true)}
+      style={{ cursor: showControls ? 'default' : 'none' }}
+      onMouseMove={resetHideTimer}
     >
       {/* Slide Content */}
       <div
@@ -257,82 +276,101 @@ export default function DisplayPage() {
       </div>
 
       {/* Controls Overlay */}
-      {showControls && (
-        <>
-          {/* Top Bar */}
-          <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start bg-gradient-to-b from-black/50 to-transparent">
-            <div className="text-white/80 text-sm">
-              Slide {currentSlideIndex + 1} of {slides.length}
+      <>
+        {/* Top Bar */}
+        <div
+          className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start bg-gradient-to-b from-black/50 to-transparent"
+          style={{
+            opacity: showControls ? 1 : 0,
+            transition: 'opacity 0.4s ease',
+            pointerEvents: showControls ? 'auto' : 'none',
+          }}
+        >
+          <div className="text-white/80 text-sm">
+            Slide {currentSlideIndex + 1} of {slides.length}
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/20"
+            onClick={exitPresentation}
+          >
+            <X className="h-6 w-6" />
+          </Button>
+        </div>
+
+        {/* Navigation Controls */}
+        <div
+          className="absolute inset-0 flex items-center justify-between px-4"
+          style={{
+            opacity: showControls ? 1 : 0,
+            transition: 'opacity 0.4s ease',
+            pointerEvents: showControls ? 'auto' : 'none',
+          }}
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/20 h-16 w-16"
+            onClick={goToPreviousSlide}
+            disabled={slides.length <= 1}
+          >
+            <ChevronLeft className="h-10 w-10" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/20 h-16 w-16"
+            onClick={goToNextSlide}
+            disabled={slides.length <= 1}
+          >
+            <ChevronRight className="h-10 w-10" />
+          </Button>
+        </div>
+
+        {/* Bottom Bar */}
+        <div
+          className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/50 to-transparent"
+          style={{
+            opacity: showControls ? 1 : 0,
+            transition: 'opacity 0.4s ease',
+            pointerEvents: showControls ? 'auto' : 'none',
+          }}
+        >
+          <div className="flex items-center justify-between">
+            {/* Progress Bar */}
+            <div className="flex-1 mx-4">
+              <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-white/60 transition-all duration-300"
+                  style={{
+                    width: `${((currentSlideIndex + 1) / slides.length) * 100}%`,
+                  }}
+                />
+              </div>
             </div>
+
+            {/* Play/Pause Button */}
             <Button
               variant="ghost"
               size="icon"
               className="text-white hover:bg-white/20"
-              onClick={exitPresentation}
+              onClick={togglePlayPause}
             >
-              <X className="h-6 w-6" />
+              {isPlaying ? (
+                <Pause className="h-5 w-5" />
+              ) : (
+                <Play className="h-5 w-5" />
+              )}
             </Button>
           </div>
 
-          {/* Navigation Controls */}
-          <div className="absolute inset-0 flex items-center justify-between px-4 pointer-events-none">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/20 pointer-events-auto h-16 w-16"
-              onClick={goToPreviousSlide}
-              disabled={slides.length <= 1}
-            >
-              <ChevronLeft className="h-10 w-10" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/20 pointer-events-auto h-16 w-16"
-              onClick={goToNextSlide}
-              disabled={slides.length <= 1}
-            >
-              <ChevronRight className="h-10 w-10" />
-            </Button>
+          {/* Keyboard Shortcuts Hint */}
+          <div className="text-center mt-2 text-white/40 text-xs">
+            Use ← → arrow keys to navigate • Space to pause • ESC to exit
           </div>
-
-          {/* Bottom Bar */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/50 to-transparent">
-            <div className="flex items-center justify-between">
-              {/* Progress Bar */}
-              <div className="flex-1 mx-4">
-                <div className="h-1 bg-white/20 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-white/60 transition-all duration-300"
-                    style={{
-                      width: `${((currentSlideIndex + 1) / slides.length) * 100}%`,
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Play/Pause Button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-white hover:bg-white/20"
-                onClick={togglePlayPause}
-              >
-                {isPlaying ? (
-                  <Pause className="h-5 w-5" />
-                ) : (
-                  <Play className="h-5 w-5" />
-                )}
-              </Button>
-            </div>
-
-            {/* Keyboard Shortcuts Hint */}
-            <div className="text-center mt-2 text-white/40 text-xs">
-              Use ← → arrow keys to navigate • Space to pause • ESC to exit
-            </div>
-          </div>
-        </>
-      )}
+        </div>
+      </>
 
       {/* No Slides Message */}
       {slides.length === 0 && (
