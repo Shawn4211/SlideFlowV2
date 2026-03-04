@@ -51,6 +51,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import Link from "next/link";
+import { SLIDE_TEMPLATES, TEMPLATE_GENRES, SlideTemplate } from "@/lib/template-data";
 
 // Types
 interface SlideElement {
@@ -167,13 +168,10 @@ export default function SlideEditorPage() {
   const [isPexelsLoading, setIsPexelsLoading] = useState(false);
 
   // Templates
-  // Templates (Placeholder for API integration)
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
-  // const [templates, setTemplates] = useState<any[]>([]);
-  // const [isTemplatesLoading, setIsTemplatesLoading] = useState(false);
-  // const [templateGenres, setTemplateGenres] = useState<string[]>([]);
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [templateSearch, setTemplateSearch] = useState("");
+  const [templatePreview, setTemplatePreview] = useState<SlideTemplate | null>(null);
 
   const currentSlide = slides[currentSlideIndex];
 
@@ -451,12 +449,30 @@ export default function SlideEditorPage() {
     setIsPexelsLoading(false);
   };
 
-  // Load templates (Placeholder)
-  const loadTemplates = async (genre?: string, search?: string) => {
-    console.log("Template API integration pending...");
-    // setIsTemplatesLoading(true);
-    // ... implementation removed ...
-    // setIsTemplatesLoading(false);
+  // Filter templates based on genre and search
+  const filteredEditorTemplates = SLIDE_TEMPLATES.filter((t) => {
+    const matchesGenre = selectedGenre === "All" || t.genre === selectedGenre;
+    if (!matchesGenre) return false;
+    if (!templateSearch.trim()) return true;
+    const q = templateSearch.toLowerCase();
+    return t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q) || t.tags.some((tag) => tag.toLowerCase().includes(q));
+  });
+
+  // Import template into current editor
+  const importTemplate = (template: SlideTemplate) => {
+    const clonedSlides = JSON.parse(JSON.stringify(template.slides)).map((slide: any, i: number) => ({
+      ...slide,
+      id: Math.random().toString(36).substr(2, 9),
+      name: `Slide ${slides.length + i + 1}`,
+      elements: slide.elements.map((el: any) => ({ ...el, id: Math.random().toString(36).substr(2, 9) })),
+    }));
+    const newSlides = [...slides, ...clonedSlides];
+    setSlides(newSlides);
+    setCurrentSlideIndex(slides.length); // Jump to first imported slide
+    saveToHistory(newSlides, slides.length);
+    setIsTemplatesOpen(false);
+    setTemplatePreview(null);
+    setSlideName((prev) => prev === "Untitled Slide" ? template.name : prev);
   };
 
   // Handle file upload
@@ -1082,7 +1098,7 @@ export default function SlideEditorPage() {
 
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="outline" size="icon" onClick={() => { setIsTemplatesOpen(true); loadTemplates(); }} className={darkMode ? 'border-white hover:bg-gray-800' : ''}>
+                      <Button variant="outline" size="icon" onClick={() => { setIsTemplatesOpen(true); setTemplateSearch(""); setSelectedGenre("All"); setTemplatePreview(null); }} className={darkMode ? 'border-white hover:bg-gray-800' : ''}>
                         <LayoutTemplate className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
@@ -1687,7 +1703,7 @@ export default function SlideEditorPage() {
           <DialogContent className={`max-w-5xl max-h-[85vh] ${darkMode ? 'bg-gray-900 border-gray-700' : ''}`}>
             <DialogHeader>
               <DialogTitle className={darkMode ? 'text-white' : ''}>Templates</DialogTitle>
-              <DialogDescription className={darkMode ? 'text-gray-400' : ''}>Browse templates via API (coming soon)</DialogDescription>
+              <DialogDescription className={darkMode ? 'text-gray-400' : ''}>Choose a template to add to your presentation</DialogDescription>
             </DialogHeader>
 
             {/* Search and Filter Bar */}
@@ -1697,39 +1713,168 @@ export default function SlideEditorPage() {
                 <Input
                   placeholder="Search templates..."
                   value={templateSearch}
-                  onChange={(e) => {
-                    setTemplateSearch(e.target.value);
-                    loadTemplates(selectedGenre, e.target.value);
-                  }}
+                  onChange={(e) => setTemplateSearch(e.target.value)}
                   className={`pl-9 ${darkMode ? 'editor-input' : ''}`}
                 />
               </div>
               <select
                 value={selectedGenre}
-                onChange={(e) => {
-                  setSelectedGenre(e.target.value);
-                  loadTemplates(e.target.value, templateSearch);
-                }}
+                onChange={(e) => setSelectedGenre(e.target.value)}
                 className={`h-9 rounded-md border px-3 text-sm min-w-[160px] ${darkMode
                   ? 'bg-gray-800 border-gray-600 text-white'
                   : 'bg-white border-input'
                   }`}
               >
-                <option value="All">All Genres</option>
-                {/* {templateGenres.map((g) => (
-                  <option key={g} value={g}>{g}</option>
-                ))} */}
+                {TEMPLATE_GENRES.map((g) => (
+                  <option key={g} value={g}>{g === "All" ? "All Genres" : g}</option>
+                ))}
               </select>
             </div>
 
             <ScrollArea className="h-[500px]">
-              {/* Template list removed. Pending API integration. */}
-              <div className="flex items-center justify-center h-64 border-2 border-dashed rounded-lg">
-                <div className="text-center">
-                  <LayoutTemplate className={`h-12 w-12 mx-auto mb-3 ${darkMode ? 'text-gray-600' : 'text-gray-300'}`} />
-                  <p className={darkMode ? 'text-gray-400' : 'text-muted-foreground'}>Templates will be loaded from external API.</p>
+              {templatePreview ? (
+                /* Template Preview Mode */
+                <div className="space-y-4 p-1">
+                  <Button variant="ghost" size="sm" onClick={() => setTemplatePreview(null)} className={darkMode ? 'text-gray-300 hover:bg-gray-800' : ''}>
+                    <ChevronLeft className="h-4 w-4 mr-1" /> Back to templates
+                  </Button>
+                  <div className="text-center">
+                    <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : ''}`}>{templatePreview.name}</h3>
+                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>{templatePreview.description}</p>
+                  </div>
+                  <div className="flex justify-center">
+                    <div
+                      style={{
+                        width: 960 * 0.55,
+                        height: 540 * 0.55,
+                        backgroundColor: templatePreview.slides[0].backgroundColor,
+                        position: 'relative',
+                        overflow: 'hidden',
+                        borderRadius: 10,
+                        border: darkMode ? '1px solid #374151' : '1px solid #e5e7eb',
+                      }}
+                    >
+                      {templatePreview.slides[0].elements.map((el) => (
+                        <div
+                          key={el.id}
+                          style={{
+                            position: 'absolute',
+                            left: el.x * 0.55,
+                            top: el.y * 0.55,
+                            width: el.width * 0.55,
+                            height: el.height * 0.55,
+                            backgroundColor: el.style.backgroundColor || 'transparent',
+                            borderRadius: el.style.borderRadius ? `calc(${el.style.borderRadius} * 0.55)` : undefined,
+                            clipPath: el.style.clipPath,
+                            overflow: 'hidden',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            justifyContent: el.style.textAlign === 'center' ? 'center' : el.style.textAlign === 'right' ? 'flex-end' : 'flex-start',
+                          }}
+                        >
+                          {el.type === 'text' && (
+                            <span
+                              style={{
+                                fontSize: (el.style.fontSize || 16) * 0.55,
+                                color: el.style.color || '#000',
+                                fontFamily: el.style.fontFamily || 'Arial',
+                                fontWeight: el.style.fontWeight || 'normal',
+                                fontStyle: el.style.fontStyle || 'normal',
+                                textAlign: (el.style.textAlign as any) || 'left',
+                                width: '100%',
+                                lineHeight: 1.3,
+                                whiteSpace: 'pre-wrap',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              {el.content}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex justify-center gap-3 pt-2">
+                    <Button onClick={() => importTemplate(templatePreview)}>
+                      <Plus className="h-4 w-4 mr-2" /> Import Template
+                    </Button>
+                    <Button variant="outline" onClick={() => setTemplatePreview(null)} className={darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-800' : ''}>Cancel</Button>
+                  </div>
                 </div>
-              </div>
+              ) : filteredEditorTemplates.length === 0 ? (
+                <div className="flex items-center justify-center h-64 border-2 border-dashed rounded-lg">
+                  <div className="text-center">
+                    <LayoutTemplate className={`h-12 w-12 mx-auto mb-3 ${darkMode ? 'text-gray-600' : 'text-gray-300'}`} />
+                    <p className={darkMode ? 'text-gray-400' : 'text-muted-foreground'}>No templates found. Try a different search or genre.</p>
+                  </div>
+                </div>
+              ) : (
+                /* Template Grid */
+                <div className="grid grid-cols-3 gap-3 p-1">
+                  {filteredEditorTemplates.map((template) => (
+                    <div
+                      key={template.id}
+                      className={`cursor-pointer rounded-lg border p-2 transition-all hover:shadow-md ${darkMode ? 'border-gray-700 hover:border-blue-500 bg-gray-800' : 'border-gray-200 hover:border-blue-400 bg-white'}`}
+                      onClick={() => setTemplatePreview(template)}
+                    >
+                      {/* Mini Preview */}
+                      <div
+                        style={{
+                          width: '100%',
+                          aspectRatio: '16/9',
+                          backgroundColor: template.slides[0].backgroundColor,
+                          position: 'relative',
+                          overflow: 'hidden',
+                          borderRadius: 6,
+                          marginBottom: 8,
+                        }}
+                      >
+                        {template.slides[0].elements.map((el) => {
+                          const scale = 0.22;
+                          return (
+                            <div
+                              key={el.id}
+                              style={{
+                                position: 'absolute',
+                                left: el.x * scale,
+                                top: el.y * scale,
+                                width: el.width * scale,
+                                height: el.height * scale,
+                                backgroundColor: el.style.backgroundColor || 'transparent',
+                                borderRadius: el.style.borderRadius ? `calc(${el.style.borderRadius} * ${scale})` : undefined,
+                                clipPath: el.style.clipPath,
+                                overflow: 'hidden',
+                              }}
+                            >
+                              {el.type === 'text' && (
+                                <span
+                                  style={{
+                                    fontSize: (el.style.fontSize || 16) * scale,
+                                    color: el.style.color || '#000',
+                                    fontFamily: el.style.fontFamily || 'Arial',
+                                    fontWeight: el.style.fontWeight || 'normal',
+                                    fontStyle: el.style.fontStyle || 'normal',
+                                    textAlign: (el.style.textAlign as any) || 'left',
+                                    width: '100%',
+                                    lineHeight: 1.3,
+                                    whiteSpace: 'pre-wrap',
+                                    overflow: 'hidden',
+                                    display: 'block',
+                                  }}
+                                >
+                                  {el.content}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className={`text-xs font-semibold truncate ${darkMode ? 'text-white' : ''}`}>{template.name}</p>
+                      <p className={`text-[10px] truncate ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>{template.genre}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </ScrollArea>
           </DialogContent>
         </Dialog>

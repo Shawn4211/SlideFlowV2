@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Monitor,
+  LayoutTemplate,
   Images,
   Calendar,
   Tv2,
@@ -22,6 +23,11 @@ const navItems = [
     title: "Screens",
     href: "/dashboard/screens",
     icon: Monitor,
+  },
+  {
+    title: "Templates",
+    href: "/dashboard/templates",
+    icon: LayoutTemplate,
   },
   {
     title: "Content",
