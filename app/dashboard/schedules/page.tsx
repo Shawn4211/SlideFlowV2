@@ -140,9 +140,20 @@ export default function SchedulesPage() {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
-  // Convert a local datetime-local string to a proper ISO string with timezone
-  const toISOFromLocal = (localStr: string) => {
-    return new Date(localStr).toISOString();
+  // Get the local timezone offset as a string like "+05:30" or "-07:00"
+  const getTimezoneOffsetString = () => {
+    const offsetMin = new Date().getTimezoneOffset(); // e.g. 420 for UTC-7
+    const sign = offsetMin <= 0 ? "+" : "-";
+    const absMin = Math.abs(offsetMin);
+    const h = String(Math.floor(absMin / 60)).padStart(2, "0");
+    const m = String(absMin % 60).padStart(2, "0");
+    return `${sign}${h}:${m}`;
+  };
+
+  // Convert a datetime-local string (e.g. "2026-03-03T19:52") to an ISO string
+  // with the user's local timezone offset appended (e.g. "2026-03-03T19:52:00-07:00")
+  const localToISO = (localStr: string) => {
+    return `${localStr}:00${getTimezoneOffsetString()}`;
   };
 
   const openEdit = (show: Show) => {
@@ -158,8 +169,8 @@ export default function SchedulesPage() {
     if (!formStart || !formFinish) return;
 
     // Convert local datetime-local values to proper ISO strings
-    const isoStart = toISOFromLocal(formStart);
-    const isoFinish = toISOFromLocal(formFinish);
+    const isoStart = localToISO(formStart);
+    const isoFinish = localToISO(formFinish);
 
     // If scheduling an existing show, update it with the schedule times
     if (formExistingShowId) {
