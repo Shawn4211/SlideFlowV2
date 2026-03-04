@@ -404,22 +404,22 @@ export default function ScreensPage() {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleEditSlide(show);
+                            handlePresent(show);
                           }}
                         >
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit
+                          <Play className="mr-2 h-4 w-4" />
+                          Present
                         </Button>
                         <Button
                           size="sm"
                           variant="secondary"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handlePresent();
+                            handleEditSlide(show);
                           }}
                         >
-                          <Play className="mr-2 h-4 w-4" />
-                          Preview
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
                         </Button>
                       </div>
 

@@ -36,6 +36,15 @@ interface Slide {
   duration: number;
 }
 
+interface ActiveShow {
+  id: number;
+  name: string;
+  slides_data: Slide[];
+  start_time: string | null;
+  finish_time: string | null;
+  content?: { id: number; name: string; type: string; file_url: string } | null;
+}
+
 // Default slides if none exist
 const defaultSlides: Slide[] = [
   {
@@ -72,6 +81,12 @@ export default function DisplayPage() {
   const [showControls, setShowControls] = useState(true);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Track whether we're driven by a scheduled show
+  const [activeShowName, setActiveShowName] = useState<string | null>(null);
+  const [nextShowStart, setNextShowStart] = useState<string | null>(null);
+  // Track whether a manual "Present" was triggered via localStorage
+  const manualPresentRef = useRef(false);
+
   const currentSlide = slides[currentSlideIndex] || slides[0];
 
   // Auto-hide controls after mouse inactivity
@@ -91,7 +106,31 @@ export default function DisplayPage() {
     };
   }, [resetHideTimer]);
 
-  // Load slides from localStorage on mount
+  // ── Fetch scheduled shows from the database ──
+  const fetchActiveShow = useCallback(async () => {
+    try {
+      const res = await fetch("/api/shows/active");
+      const data = await res.json();
+
+      const current: ActiveShow | null = data.currentShow ?? null;
+      const next: ActiveShow | null = data.nextShow ?? null;
+
+      // If there's a currently active scheduled show with slides, use it
+      if (current && current.slides_data && current.slides_data.length > 0) {
+        setSlides(current.slides_data);
+        setCurrentSlideIndex(0);
+        setActiveShowName(current.name);
+        manualPresentRef.current = false; // override manual present
+      }
+
+      // Track the next upcoming show's start time for auto-transition
+      setNextShowStart(next?.start_time ?? null);
+    } catch (err) {
+      console.error("Failed to fetch active shows:", err);
+    }
+  }, []);
+
+  // On mount: check localStorage first (manual present), then fetch scheduled
   useEffect(() => {
     const savedSlides = localStorage.getItem("slideflow_slides");
     if (savedSlides) {
@@ -99,14 +138,18 @@ export default function DisplayPage() {
         const parsed = JSON.parse(savedSlides);
         if (parsed.length > 0) {
           setSlides(parsed);
+          manualPresentRef.current = true;
         }
       } catch (e) {
         console.error("Error loading slides:", e);
       }
     }
-  }, []);
 
-  // Listen for slides update from editor
+    // Always fetch scheduled shows — active scheduled show takes priority
+    fetchActiveShow();
+  }, [fetchActiveShow]);
+
+  // Listen for slides update from editor (manual present via localStorage)
   useEffect(() => {
     const handleStorageChange = () => {
       const savedSlides = localStorage.getItem("slideflow_slides");
@@ -115,6 +158,8 @@ export default function DisplayPage() {
           const parsed = JSON.parse(savedSlides);
           if (parsed.length > 0) {
             setSlides(parsed);
+            manualPresentRef.current = true;
+            setActiveShowName(null);
           }
         } catch (e) {
           console.error("Error loading slides:", e);
@@ -126,6 +171,12 @@ export default function DisplayPage() {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
+  // Poll /api/shows/active every 30 seconds to pick up new scheduled shows
+  useEffect(() => {
+    const interval = setInterval(fetchActiveShow, 30_000);
+    return () => clearInterval(interval);
+  }, [fetchActiveShow]);
+
   // Auto-advance slides
   useEffect(() => {
     if (!isPlaying || slides.length <= 1) return;
@@ -136,23 +187,6 @@ export default function DisplayPage() {
 
     return () => clearInterval(timer);
   }, [currentSlideIndex, slides.length, currentSlide.duration, isPlaying]);
-
-  // Auto-refresh page every 30 seconds to check for updates
-  useEffect(() => {
-    const refreshTimer = setInterval(() => {
-      const savedSlides = localStorage.getItem("slideflow_slides");
-      if (savedSlides) {
-        try {
-          const parsed = JSON.parse(savedSlides);
-          setSlides(parsed);
-        } catch (e) {
-          console.error("Error refreshing slides:", e);
-        }
-      }
-    }, 30000);
-
-    return () => clearInterval(refreshTimer);
-  }, []);
 
   // Full page reload every 5 minutes
   useEffect(() => {
@@ -287,7 +321,12 @@ export default function DisplayPage() {
           }}
         >
           <div className="text-white/80 text-sm">
-            Slide {currentSlideIndex + 1} of {slides.length}
+            <div>Slide {currentSlideIndex + 1} of {slides.length}</div>
+            {activeShowName && (
+              <div className="text-white/60 text-xs mt-0.5">
+                📅 {activeShowName}
+              </div>
+            )}
           </div>
           <Button
             variant="ghost"
