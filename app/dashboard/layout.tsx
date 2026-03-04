@@ -1,12 +1,53 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { UserNav } from "@/components/user-nav";
 import { DarkModeToggle } from "@/components/dark-mode-toggle";
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const [isChecking, setIsChecking] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace("/auth/login");
+      } else {
+        setIsAuthenticated(true);
+      }
+      setIsChecking(false);
+    };
+
+    checkAuth();
+
+    // Listen for auth state changes (e.g. sign out)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        router.replace("/auth/login");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [router]);
+
+  // Show nothing while checking auth
+  if (isChecking || !isAuthenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
@@ -15,7 +56,6 @@ export default async function DashboardLayout({
           <h1 className="text-xl font-bold">SlideFlow</h1>
         </div>
         <DashboardNav />
-
       </aside>
 
       {/* Main content */}

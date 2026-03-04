@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { User, Lock } from "lucide-react";
+import { User, Lock, Eye, EyeOff } from "lucide-react";
 
 const ADMIN_ACCOUNTS: Record<string, string> = {
   "Admin": "admin@slideflow.app",
@@ -148,9 +148,17 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   useEffect(() => {
     setMounted(true);
+    // Load remembered username
+    const saved = localStorage.getItem("slideflow_remember_user");
+    if (saved) {
+      setUsername(saved);
+      setRememberMe(true);
+    }
   }, []);
 
   useParticles(canvasRef);
@@ -176,6 +184,12 @@ export default function LoginPage() {
       if (authError) {
         setError("Invalid username or password");
       } else {
+        // Save or clear remembered username
+        if (rememberMe) {
+          localStorage.setItem("slideflow_remember_user", username);
+        } else {
+          localStorage.removeItem("slideflow_remember_user");
+        }
         router.push("/dashboard");
         router.refresh();
       }
@@ -291,6 +305,26 @@ export default function LoginPage() {
           color: rgba(255,255,255,0.12);
           width: 14px; height: 14px;
           pointer-events: none;
+        }
+
+        .lp-eye-btn {
+          position: absolute;
+          right: 10px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: none;
+          border: none;
+          color: rgba(255,255,255,0.3);
+          cursor: pointer;
+          padding: 2px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: color 0.2s ease;
+          z-index: 1;
+        }
+        .lp-eye-btn:hover {
+          color: rgba(255,255,255,0.6);
         }
 
         .lp-input {
@@ -417,12 +451,14 @@ export default function LoginPage() {
 
               <div className="lp-ig">
                 <Lock className="lp-ic-l" />
-                <input type="password" className="lp-input" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                <Lock className="lp-ic-r" />
+                <input type={showPassword ? "text" : "password"} className="lp-input" style={{ paddingRight: '42px' }} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <button type="button" className="lp-eye-btn" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
 
               <div className="lp-row">
-                <label><input type="checkbox" defaultChecked /> Remember me</label>
+                <label><input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} /> Remember me</label>
               </div>
 
               {error && <div className="lp-error">{error}</div>}
