@@ -711,7 +711,7 @@ export default function SlideEditorPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: savedShowId,
-          contentId: params.slideId,
+          contentId: params.slideId === "new" ? undefined : params.slideId,
           name: slideName,
           slidesData: slides,
           startTime: scheduleStart || null,
@@ -722,7 +722,15 @@ export default function SlideEditorPage() {
       if (!response.ok) throw new Error("Failed to save");
 
       const data = await response.json();
-      if (data.show?.id) setSavedShowId(data.show.id);
+      if (data.show?.id) {
+        setSavedShowId(data.show.id);
+
+        // If this was a new slide, update the URL without reloading the page
+        // so that if they refresh or copy the link, it loads this specific show
+        if (params.slideId === "new") {
+          window.history.replaceState(null, "", `/editor/${data.show.id}`);
+        }
+      }
 
       localStorage.setItem("slideflow_slides", JSON.stringify(slides));
       saveToHistory(slides, currentSlideIndex);
