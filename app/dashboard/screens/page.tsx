@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Edit, Play, Copy, Trash2, MoreVertical, Presentation, Clock, Video, Moon, Sun } from "lucide-react";
+import { Plus, Edit, Play, Copy, Trash2, MoreVertical, Presentation, Clock, Video, Moon, Sun, Search } from "lucide-react";
 
 interface Show {
   id: number;
@@ -48,6 +48,8 @@ export default function ScreensPage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [newSlideName, setNewSlideName] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isPresentDialogOpen, setIsPresentDialogOpen] = useState(false);
+  const [presentSearch, setPresentSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
 
@@ -136,9 +138,23 @@ export default function ScreensPage() {
     }
   };
 
-  const handlePresent = () => {
+  const handlePresent = (show?: Show) => {
+    if (show) {
+      // Present a specific show
+      localStorage.setItem("slideflow_slides", JSON.stringify(show.slides_data || []));
+    } else {
+      // Present all shows combined
+      const allSlides = shows.flatMap((s) => (Array.isArray(s.slides_data) ? s.slides_data : []));
+      localStorage.setItem("slideflow_slides", JSON.stringify(allSlides));
+    }
+    setIsPresentDialogOpen(false);
+    setPresentSearch("");
     window.open("/display", "_blank");
   };
+
+  const filteredShowsForPresent = shows.filter((show) =>
+    (show.name || "Untitled").toLowerCase().includes(presentSearch.toLowerCase())
+  );
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -203,16 +219,75 @@ export default function ScreensPage() {
       <div className={`space-y-6 p-6 min-h-screen ${darkMode ? 'dashboard-bg' : ''}`}>
         <div className="flex justify-between items-center">
           <div>
-            <h1 className={`text-3xl font-bold tracking-tight ${darkMode ? 'dashboard-text' : ''}`}>Slides</h1>
+            <h1 className={`text-3xl font-bold tracking-tight ${darkMode ? 'dashboard-text' : ''}`}>Projects</h1>
             <p className={darkMode ? 'dashboard-text-muted' : 'text-muted-foreground'}>
-              Create and manage your presentation slides
+              Create and manage your presentation projects
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handlePresent} className={darkMode ? 'dashboard-button' : ''}>
-              <Presentation className="mr-2 h-4 w-4" />
-              Present
-            </Button>
+            <Dialog open={isPresentDialogOpen} onOpenChange={(open) => { setIsPresentDialogOpen(open); if (!open) setPresentSearch(""); }}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className={darkMode ? 'dashboard-button' : ''}>
+                  <Presentation className="mr-2 h-4 w-4" />
+                  Present
+                </Button>
+              </DialogTrigger>
+              <DialogContent className={`sm:max-w-lg ${darkMode ? 'bg-gray-900 border-gray-700' : ''}`}>
+                <DialogHeader>
+                  <DialogTitle className={darkMode ? 'text-white' : ''}>Select a Project to Present</DialogTitle>
+                  <DialogDescription className={darkMode ? 'text-gray-400' : ''}>
+                    Choose a project to display or present all projects
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-2">
+                  <div className="relative mb-3">
+                    <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`} />
+                    <Input
+                      placeholder="Search projects..."
+                      value={presentSearch}
+                      onChange={(e) => setPresentSearch(e.target.value)}
+                      className={`pl-9 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : ''}`}
+                    />
+                  </div>
+                  <div className="max-h-64 overflow-y-auto space-y-2">
+                    {filteredShowsForPresent.length === 0 ? (
+                      <p className={`text-sm text-center py-4 ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>No projects found</p>
+                    ) : (
+                      filteredShowsForPresent.map((show) => {
+                        const slideCount = Array.isArray(show.slides_data) ? show.slides_data.length : 0;
+                        return (
+                          <button
+                            key={show.id}
+                            onClick={() => handlePresent(show)}
+                            className={`w-full flex items-center justify-between p-3 rounded-lg border text-left transition-colors ${darkMode ? 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-white' : 'bg-card hover:bg-accent border-border'}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`h-9 w-9 rounded flex items-center justify-center text-sm font-medium ${darkMode ? 'bg-gray-700' : 'bg-primary/10'}`}>
+                                {slideCount}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">{show.name || "Untitled"}</p>
+                                <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>{slideCount} {slideCount === 1 ? 'slide' : 'slides'}</p>
+                              </div>
+                            </div>
+                            <Play className={`h-4 w-4 ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`} />
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button variant="outline" onClick={() => { setIsPresentDialogOpen(false); setPresentSearch(""); }} className={darkMode ? 'border-gray-600 text-white hover:bg-gray-800' : ''}>
+                    Cancel
+                  </Button>
+                  <Button onClick={() => handlePresent()} disabled={shows.length === 0}>
+                    <Presentation className="mr-2 h-4 w-4" />
+                    Present All
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button className={darkMode ? 'bg-gray-700 hover:bg-gray-600' : ''}>
