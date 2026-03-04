@@ -154,6 +154,7 @@ export default function SlideEditorPage() {
   const [darkMode, setDarkMode] = useState(false);
   const [showShapesMenu, setShowShapesMenu] = useState(false);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   // History for undo/redo
   const [history, setHistory] = useState<HistoryState[]>([]);
@@ -175,6 +176,17 @@ export default function SlideEditorPage() {
   const [templateSearch, setTemplateSearch] = useState("");
 
   const currentSlide = slides[currentSlideIndex];
+
+  // Auth check — redirect if not logged in
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        router.replace("/auth/login");
+      } else {
+        setIsAuthChecking(false);
+      }
+    });
+  }, [router]);
 
   // Load content from Supabase when editing existing content
   useEffect(() => {
@@ -761,6 +773,14 @@ export default function SlideEditorPage() {
       />
     </>
   );
+
+  if (isAuthChecking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider>
