@@ -65,6 +65,21 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { id, contentId, name, slidesData, startTime, finishTime, deviceId, locationId, clientId } = body;
 
+        // Check if the content_id actually exists in the database to prevent foreign key errors
+        let validContentId = null;
+        if (contentId && !isNaN(parseInt(contentId, 10))) {
+            const parsedId = parseInt(contentId, 10);
+            const { data: contentCheck } = await supabase
+                .from("content")
+                .select("id")
+                .eq("id", parsedId)
+                .single();
+
+            if (contentCheck) {
+                validContentId = parsedId;
+            }
+        }
+
         if (id) {
             // Update existing show
             const updateData: any = { updated_at: new Date().toISOString() };
@@ -75,6 +90,7 @@ export async function POST(request: NextRequest) {
             if (deviceId !== undefined) updateData.device_id = deviceId;
             if (locationId !== undefined) updateData.location_id = locationId;
             if (clientId !== undefined) updateData.client_id = clientId;
+            if (validContentId !== null) updateData.content_id = validContentId;
 
             const { data, error } = await supabase
                 .from("show")
@@ -96,10 +112,7 @@ export async function POST(request: NextRequest) {
                 slides_data: slidesData || [],
             };
 
-            // Only set content_id if it's a valid number
-            if (contentId && !isNaN(parseInt(contentId, 10))) {
-                insertData.content_id = parseInt(contentId, 10);
-            }
+            if (validContentId !== null) insertData.content_id = validContentId;
             if (startTime) insertData.start_time = startTime;
             if (finishTime) insertData.finish_time = finishTime;
             if (deviceId) insertData.device_id = deviceId;
