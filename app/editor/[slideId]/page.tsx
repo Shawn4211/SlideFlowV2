@@ -185,14 +185,28 @@ export default function SlideEditorPage() {
       const isNumericId = contentId && !isNaN(parseInt(contentId, 10));
 
       if (!isNumericId) {
+        // Check if the screens page stored a name for this new show
+        const storedName = localStorage.getItem("slideflow_new_show_name");
+        if (storedName) {
+          setSlideName(storedName);
+          localStorage.removeItem("slideflow_new_show_name");
+        }
         setIsLoadingContent(false);
         return;
       }
 
       try {
-        // First, check if we have saved show data for this content
-        const showRes = await fetch(`/api/shows?contentId=${contentId}`);
-        const showJson = await showRes.json();
+        // Try loading by show ID first (when navigating from screens page),
+        // then fall back to loading by content ID
+        let showJson: any = { show: null };
+
+        const showByIdRes = await fetch(`/api/shows?id=${contentId}`);
+        showJson = await showByIdRes.json();
+
+        if (!showJson.show) {
+          const showByContentRes = await fetch(`/api/shows?contentId=${contentId}`);
+          showJson = await showByContentRes.json();
+        }
 
         if (showJson.show) {
           // Load saved show data
@@ -716,10 +730,8 @@ export default function SlideEditorPage() {
     }
   }, [isPexelsOpen]);
 
-  // Save slides to localStorage
-  useEffect(() => {
-    localStorage.setItem("slideflow_slides", JSON.stringify(slides));
-  }, [slides]);
+  // Note: slides are saved to the database via saveSlide().
+  // localStorage is only used for the display/present feature.
 
   const selectedElementData = currentSlide.elements.find((e) => e.id === selectedElement);
 

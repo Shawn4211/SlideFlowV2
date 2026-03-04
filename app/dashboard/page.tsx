@@ -1,31 +1,82 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LayoutDashboard, Presentation, Images, ListVideo, Activity, Clock, ExternalLink } from "lucide-react";
+import { LayoutDashboard, Presentation, Activity, Clock, ExternalLink, Edit, MonitorPlay } from "lucide-react";
 import Link from "next/link";
 
-// Mock slides data
-const mockSlides = [
-  { id: "1", name: "Welcome Slide", isActive: true },
-  { id: "2", name: "Product Showcase", isActive: true },
-  { id: "3", name: "Contact Information", isActive: true },
-];
+interface Show {
+  id: number;
+  name: string | null;
+  content_id: number | null;
+  slides_data: any[];
+  start_time: string | null;
+  finish_time: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
-const mockPlaylists = [
-  { id: "1", name: "Main Playlist", itemCount: 3 },
-];
+export default function DashboardPage() {
+  const [shows, setShows] = useState<Show[]>([]);
+  const [currentShow, setCurrentShow] = useState<Show | null>(null);
+  const [nextShow, setNextShow] = useState<Show | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-const mockSchedules = [
-  { id: "1", name: "Business Hours" },
-];
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [showsRes, activeRes] = await Promise.all([
+          fetch("/api/shows"),
+          fetch("/api/shows/active"),
+        ]);
+        const showsData = await showsRes.json();
+        const activeData = await activeRes.json();
 
-export default async function DashboardPage() {
-  const slides = mockSlides;
-  const playlists = mockPlaylists;
-  const schedules = mockSchedules;
+        setShows(showsData.shows || []);
+        setCurrentShow(activeData.currentShow || null);
+        setNextShow(activeData.nextShow || null);
+      } catch (error) {
+        console.error("Error loading dashboard data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
-  const activeSlides = slides.filter(s => s.isActive).length;
-  const totalDuration = slides.reduce((acc, s) => acc + 10, 0); // Assuming 10s per slide
+  const totalSlides = shows.reduce(
+    (acc, s) => acc + (Array.isArray(s.slides_data) ? s.slides_data.length : 0),
+    0
+  );
+
+  const totalDuration = shows.reduce(
+    (acc, s) =>
+      acc +
+      (Array.isArray(s.slides_data)
+        ? s.slides_data.reduce((a: number, slide: any) => a + (slide.duration || 10), 0)
+        : 0),
+    0
+  );
+
+  const scheduledShows = shows.filter((s) => s.start_time).length;
+
+  const formatDateTime = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  };
 
   return (
     <div className="space-y-6">
@@ -45,85 +96,130 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Slides</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Shows</CardTitle>
             <Presentation className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{slides.length}</div>
+            <div className="text-2xl font-bold">{isLoading ? "—" : shows.length}</div>
             <p className="text-xs text-muted-foreground">
-              {activeSlides} active slides
+              {isLoading ? "Loading..." : `${totalSlides} total slides`}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Presentation Duration</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Duration</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {Math.floor(totalDuration / 60)}m {totalDuration % 60}s
+              {isLoading ? "—" : formatDuration(totalDuration)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Total loop time
+              Across all shows
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Playlists</CardTitle>
-            <ListVideo className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{playlists.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Active content sequences
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Schedules</CardTitle>
+            <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
             <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{schedules.length}</div>
+            <div className="text-2xl font-bold">{isLoading ? "—" : scheduledShows}</div>
             <p className="text-xs text-muted-foreground">
-              Time-based rules
+              Shows with scheduled times
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Slides Preview & Cast Info */}
+      {/* Active Display & Recent Shows */}
       <div className="grid gap-4 md:grid-cols-2">
+        {/* Active Display */}
         <Card>
           <CardHeader>
-            <CardTitle>Current Slides</CardTitle>
-            <CardDescription>Your presentation slides</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <MonitorPlay className="h-5 w-5" />
+              Active Display
+            </CardTitle>
+            <CardDescription>Currently playing and upcoming shows</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {slides.map((slide, index) => (
-                <div key={slide.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center text-sm font-medium">
-                      {index + 1}
+            <div className="space-y-4">
+              {/* Currently Playing */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Now Playing</p>
+                {isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                ) : currentShow ? (
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-green-50 border-green-200">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded bg-green-100 flex items-center justify-center">
+                        <Presentation className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{currentShow.name || "Untitled"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {currentShow.start_time && formatDateTime(currentShow.start_time)}
+                          {currentShow.finish_time && ` — ${formatDateTime(currentShow.finish_time)}`}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{slide.name}</p>
-                      <p className="text-xs text-muted-foreground">10 seconds</p>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default" className="bg-green-600">Live</Badge>
+                      <Link href={`/editor/${currentShow.id}`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Link>
                     </div>
                   </div>
-                  <Badge variant="default">Active</Badge>
-                </div>
-              ))}
+                ) : (
+                  <div className="p-3 border rounded-lg border-dashed text-center">
+                    <p className="text-sm text-muted-foreground">No show currently playing</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Up Next */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Up Next</p>
+                {isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                ) : nextShow ? (
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center">
+                        <Clock className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{nextShow.name || "Untitled"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Starts {nextShow.start_time && formatDateTime(nextShow.start_time)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">Scheduled</Badge>
+                      <Link href={`/editor/${nextShow.id}`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 border rounded-lg border-dashed text-center">
+                    <p className="text-sm text-muted-foreground">No upcoming shows</p>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="mt-4">
               <Link href="/dashboard/screens">
@@ -135,108 +231,54 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
+        {/* Recent Activity */}
         <Card>
           <CardHeader>
-            <CardTitle>Cast to TV</CardTitle>
-            <CardDescription>Display your slides on any screen</CardDescription>
+            <CardTitle>Recent Shows</CardTitle>
+            <CardDescription>Your most recently updated shows</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm font-medium mb-2">Display URL</p>
-                <code className="text-xs bg-background p-2 rounded block font-mono">
-                  https://yourdomain.com/display
-                </code>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Setup Instructions:</p>
-                <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                  <li>Open the Display URL in any browser</li>
-                  <li>For Raspberry Pi: Install Chromium browser</li>
-                  <li>Configure auto-start with kiosk mode</li>
-                  <li>Slides auto-refresh every 30 seconds</li>
-                </ol>
-              </div>
-
-              <div className="flex gap-2">
-                <Link href="/display" target="_blank" className="flex-1">
-                  <Button variant="outline" className="w-full">
-                    <Presentation className="mr-2 h-4 w-4" />
-                    Preview Display
-                  </Button>
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : shows.length === 0 ? (
+              <div className="p-4 border rounded-lg border-dashed text-center">
+                <p className="text-sm text-muted-foreground">No shows yet</p>
+                <Link href="/dashboard/screens">
+                  <Button variant="link" className="mt-2">Create your first show</Button>
                 </Link>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                {shows.slice(0, 5).map((show) => {
+                  const slideCount = Array.isArray(show.slides_data) ? show.slides_data.length : 0;
+                  return (
+                    <div key={show.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center text-sm font-medium">
+                          {slideCount}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{show.name || "Untitled"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {slideCount} {slideCount === 1 ? "slide" : "slides"}
+                            {show.start_time && ` · ${formatDateTime(show.start_time)}`}
+                          </p>
+                        </div>
+                      </div>
+                      <Link href={`/editor/${show.id}`}>
+                        <Button variant="ghost" size="sm">
+                          <Edit className="mr-1 h-3 w-3" />
+                          Edit
+                        </Button>
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Raspberry Pi Setup Info */}
-      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-        <CardHeader>
-          <CardTitle className="text-blue-900">Raspberry Pi Setup Guide</CardTitle>
-          <CardDescription className="text-blue-700">
-            Configure your Raspberry Pi to display slides automatically
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-black text-green-400 p-4 rounded-lg font-mono text-sm">
-            <p className="text-gray-400"># Install Chromium (if not already installed)</p>
-            <p>sudo apt-get update</p>
-            <p>sudo apt-get install chromium-browser</p>
-            <br />
-            <p className="text-gray-400"># Edit autostart file</p>
-            <p>sudo nano /etc/xdg/lxsession/LXDE-pi/autostart</p>
-            <br />
-            <p className="text-gray-400"># Add this line to the file:</p>
-            <p>@chromium-browser --kiosk https://yourdomain.com/display</p>
-            <br />
-            <p className="text-gray-400"># Save and reboot</p>
-            <p>sudo reboot</p>
-          </div>
-          <p className="text-sm text-blue-800">
-            The display will automatically refresh every 30 seconds to check for updates, 
-            and perform a full page reload every 5 minutes to ensure fresh content.
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest changes and updates</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Activity className="h-4 w-4 text-blue-500" />
-              <div className="flex-1">
-                <p className="text-sm">New slide created</p>
-                <p className="text-xs text-muted-foreground">Welcome Slide</p>
-              </div>
-              <span className="text-xs text-muted-foreground">2h ago</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Presentation className="h-4 w-4 text-green-500" />
-              <div className="flex-1">
-                <p className="text-sm">Presentation started</p>
-                <p className="text-xs text-muted-foreground">Display mode activated</p>
-              </div>
-              <span className="text-xs text-muted-foreground">4h ago</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Images className="h-4 w-4 text-purple-500" />
-              <div className="flex-1">
-                <p className="text-sm">Slide updated</p>
-                <p className="text-xs text-muted-foreground">Product Showcase</p>
-              </div>
-              <span className="text-xs text-muted-foreground">1d ago</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

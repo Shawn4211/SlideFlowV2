@@ -23,68 +23,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Plus, Edit, Play, Copy, Trash2, MoreVertical, Presentation, Clock, Video, Moon, Sun } from "lucide-react";
 
-interface SlideElement {
-  id: string;
-  type: "text" | "image" | "shape" | "video";
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  content?: string;
-  src?: string;
-  style: {
-    fontSize?: number;
-    color?: string;
-    backgroundColor?: string;
-    fontFamily?: string;
-    fontWeight?: string;
-    fontStyle?: string;
-    textAlign?: "left" | "center" | "right";
-    textDecoration?: string;
-    borderRadius?: string;
-    clipPath?: string;
-  };
-}
-
-interface Slide {
-  id: string;
+interface Show {
+  id: number;
   name: string;
-  thumbnailUrl?: string;
-  elements: SlideElement[];
-  backgroundColor: string;
-  duration: number;
-  lastModified: Date;
-  slideNumber: number;
+  content_id: number | null;
+  slides_data: any[];
+  start_time: string | null;
+  finish_time: string | null;
+  created_at: string;
+  updated_at: string;
 }
-
-const defaultSlides: Slide[] = [
-  {
-    id: "1",
-    name: "Welcome Slide",
-    elements: [
-      {
-        id: "1",
-        type: "text",
-        x: 100,
-        y: 150,
-        width: 760,
-        height: 100,
-        content: "Welcome to Our Digital Signage",
-        style: {
-          fontSize: 48,
-          color: "#ffffff",
-          fontFamily: "Arial",
-          fontWeight: "bold",
-          textAlign: "center",
-        },
-      },
-    ],
-    backgroundColor: "#4F46E5",
-    duration: 10,
-    lastModified: new Date(),
-    slideNumber: 1,
-  },
-];
 
 // Dark mode colors - Light Gray Theme
 const DARK_BG = "#4a5568"; // Lighter gray background
@@ -97,10 +45,10 @@ const ACCENT_COLOR = "#60a5fa"; // Brighter blue accent
 
 export default function ScreensPage() {
   const router = useRouter();
-  const [slides, setSlides] = useState<Slide[]>(defaultSlides);
+  const [shows, setShows] = useState<Show[]>([]);
   const [newSlideName, setNewSlideName] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
 
   // Load dark mode preference
@@ -116,69 +64,76 @@ export default function ScreensPage() {
     localStorage.setItem("slideflow_darkmode", JSON.stringify(darkMode));
   }, [darkMode]);
 
-  // Load slides from localStorage on mount
-  useEffect(() => {
-    const savedSlides = localStorage.getItem("slideflow_slides");
-    if (savedSlides) {
-      try {
-        const parsed = JSON.parse(savedSlides);
-        if (parsed.length > 0) {
-          setSlides(parsed.map((s: any, i: number) => ({ ...s, slideNumber: i + 1 })));
-        }
-      } catch (e) {
-        console.error("Error loading slides:", e);
+  // Load shows from database
+  const fetchShows = async () => {
+    try {
+      const response = await fetch("/api/shows");
+      const data = await response.json();
+      if (data.shows) {
+        setShows(data.shows);
       }
+    } catch (error) {
+      console.error("Error fetching shows:", error);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoaded(true);
-  }, []);
+  };
 
-  // Save slides to localStorage whenever they change
   useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem("slideflow_slides", JSON.stringify(slides));
-    }
-  }, [slides, isLoaded]);
+    fetchShows();
+  }, []);
 
   const handleAddSlide = () => {
     if (!newSlideName.trim()) return;
 
-    const newSlide: Slide = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: newSlideName,
-      elements: [],
-      backgroundColor: darkMode ? "#0a0a0a" : "#ffffff",
-      duration: 10,
-      lastModified: new Date(),
-      slideNumber: slides.length + 1,
-    };
+    // Generate a temporary unique ID for the editor route
+    const tempId = Math.random().toString(36).substr(2, 9);
 
-    const updatedSlides = [...slides, newSlide];
-    setSlides(updatedSlides);
+    // Store the desired name so the editor can pick it up
+    localStorage.setItem("slideflow_new_show_name", newSlideName);
+
     setNewSlideName("");
     setIsDialogOpen(false);
 
-    // Navigate to editor
-    router.push(`/editor/${newSlide.id}`);
+    // Navigate to editor with the temp ID (non-numeric, so editor treats it as new)
+    router.push(`/editor/${tempId}`);
   };
 
-  const handleEditSlide = (slideId: string) => {
-    router.push(`/editor/${slideId}`);
+  const handleEditSlide = (show: Show) => {
+    // Navigate to editor using the show's database ID
+    router.push(`/editor/${show.id}`);
   };
 
-  const handleDuplicateSlide = (slide: Slide) => {
-    const duplicated: Slide = {
-      ...slide,
-      id: Math.random().toString(36).substr(2, 9),
-      name: `${slide.name} (Copy)`,
-      elements: JSON.parse(JSON.stringify(slide.elements)),
-      slideNumber: slides.length + 1,
-      lastModified: new Date(),
-    };
-    setSlides([...slides, duplicated]);
+  const handleDuplicateSlide = async (show: Show) => {
+    try {
+      const response = await fetch("/api/shows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `${show.name} (Copy)`,
+          slidesData: show.slides_data || [],
+          contentId: show.content_id,
+        }),
+      });
+      if (response.ok) {
+        fetchShows(); // Refresh the list
+      }
+    } catch (error) {
+      console.error("Error duplicating show:", error);
+    }
   };
 
-  const handleDeleteSlide = (slideId: string) => {
-    setSlides(slides.filter((s) => s.id !== slideId));
+  const handleDeleteSlide = async (showId: number) => {
+    try {
+      const response = await fetch(`/api/shows?id=${showId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        setShows(shows.filter((s) => s.id !== showId));
+      }
+    } catch (error) {
+      console.error("Error deleting show:", error);
+    }
   };
 
   const handlePresent = () => {
@@ -189,6 +144,23 @@ export default function ScreensPage() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  };
+
+  const getShowSlideCount = (show: Show) => {
+    return Array.isArray(show.slides_data) ? show.slides_data.length : 0;
+  };
+
+  const getShowTotalDuration = (show: Show) => {
+    if (!Array.isArray(show.slides_data)) return 0;
+    return show.slides_data.reduce((acc: number, slide: any) => acc + (slide.duration || 10), 0);
+  };
+
+  // Get the first slide's data for preview
+  const getPreviewSlide = (show: Show) => {
+    if (Array.isArray(show.slides_data) && show.slides_data.length > 0) {
+      return show.slides_data[0];
+    }
+    return null;
   };
 
   return (
@@ -279,177 +251,195 @@ export default function ScreensPage() {
           </div>
         </div>
 
-        {/* Slides Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {slides.map((slide, index) => (
-            <Card key={slide.id} className={`group overflow-hidden ${darkMode ? 'bg-gray-900/80 border-gray-700' : ''}`}>
-              <CardHeader className="p-0">
-                <div 
-                  className="relative aspect-video cursor-pointer"
-                  style={{ backgroundColor: slide.backgroundColor }}
-                  onClick={() => handleEditSlide(slide.id)}
-                >
-                  {/* Render slide elements as preview */}
-                  <div className="absolute inset-0 overflow-hidden">
-                    {slide.elements.map((element) => (
-                      <div
-                        key={element.id}
-                        className="absolute"
-                        style={{
-                          left: `${(element.x / 960) * 100}%`,
-                          top: `${(element.y / 540) * 100}%`,
-                          width: `${(element.width / 960) * 100}%`,
-                          height: `${(element.height / 540) * 100}%`,
-                          fontSize: element.style.fontSize ? `${(element.style.fontSize / 960) * 30}vw` : undefined,
-                          color: element.style.color,
-                          fontFamily: element.style.fontFamily,
-                          fontWeight: element.style.fontWeight,
-                          fontStyle: element.style.fontStyle,
-                          textAlign: element.style.textAlign,
-                          textDecoration: element.style.textDecoration,
-                          backgroundColor: element.type === "shape" ? element.style.backgroundColor : undefined,
-                          borderRadius: element.style.borderRadius,
-                          clipPath: element.style.clipPath,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: element.style.textAlign === "center" ? "center" : element.style.textAlign === "right" ? "flex-end" : "flex-start",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {element.type === "text" && (
-                          <span className="truncate w-full px-1" style={{ fontSize: "inherit" }}>
-                            {element.content}
-                          </span>
-                        )}
-                        {element.type === "image" && element.src && (
-                          <img src={element.src} alt="" className="w-full h-full object-cover" />
-                        )}
-                        {element.type === "video" && (
-                          <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-                            <Video className="w-4 h-4 text-white" />
-                          </div>
-                        )}
-                        {element.type === "shape" && (
-                          <div className="w-full h-full" style={{ backgroundColor: element.style.backgroundColor }} />
-                        )}
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <p className={darkMode ? 'text-gray-400' : 'text-muted-foreground'}>Loading shows...</p>
+          </div>
+        )}
+
+        {/* Shows Grid */}
+        {!isLoading && (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {shows.map((show, index) => {
+              const previewSlide = getPreviewSlide(show);
+              const slideCount = getShowSlideCount(show);
+              const totalDuration = getShowTotalDuration(show);
+
+              return (
+                <Card key={show.id} className={`group overflow-hidden ${darkMode ? 'bg-gray-900/80 border-gray-700' : ''}`}>
+                  <CardHeader className="p-0">
+                    <div
+                      className="relative aspect-video cursor-pointer"
+                      style={{ backgroundColor: previewSlide?.backgroundColor || (darkMode ? '#0a0a0a' : '#ffffff') }}
+                      onClick={() => handleEditSlide(show)}
+                    >
+                      {/* Render first slide elements as preview */}
+                      {previewSlide && (
+                        <div className="absolute inset-0 overflow-hidden">
+                          {(previewSlide.elements || []).map((element: any) => (
+                            <div
+                              key={element.id}
+                              className="absolute"
+                              style={{
+                                left: `${(element.x / 960) * 100}%`,
+                                top: `${(element.y / 540) * 100}%`,
+                                width: `${(element.width / 960) * 100}%`,
+                                height: `${(element.height / 540) * 100}%`,
+                                fontSize: element.style?.fontSize ? `${(element.style.fontSize / 960) * 30}vw` : undefined,
+                                color: element.style?.color,
+                                fontFamily: element.style?.fontFamily,
+                                fontWeight: element.style?.fontWeight,
+                                fontStyle: element.style?.fontStyle,
+                                textAlign: element.style?.textAlign,
+                                textDecoration: element.style?.textDecoration,
+                                backgroundColor: element.type === "shape" ? element.style?.backgroundColor : undefined,
+                                borderRadius: element.style?.borderRadius,
+                                clipPath: element.style?.clipPath,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: element.style?.textAlign === "center" ? "center" : element.style?.textAlign === "right" ? "flex-end" : "flex-start",
+                                overflow: "hidden",
+                              }}
+                            >
+                              {element.type === "text" && (
+                                <span className="truncate w-full px-1" style={{ fontSize: "inherit" }}>
+                                  {element.content}
+                                </span>
+                              )}
+                              {element.type === "image" && element.src && (
+                                <img src={element.src} alt="" className="w-full h-full object-cover" />
+                              )}
+                              {element.type === "video" && (
+                                <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                                  <Video className="w-4 h-4 text-white" />
+                                </div>
+                              )}
+                              {element.type === "shape" && (
+                                <div className="w-full h-full" style={{ backgroundColor: element.style?.backgroundColor }} />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Hover Overlay */}
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditSlide(show);
+                          }}
+                        >
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePresent();
+                          }}
+                        >
+                          <Play className="mr-2 h-4 w-4" />
+                          Preview
+                        </Button>
                       </div>
-                    ))}
-                  </div>
-                  
-                  {/* Hover Overlay */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditSlide(slide.id);
-                      }}
-                    >
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePresent();
-                      }}
-                    >
-                      <Play className="mr-2 h-4 w-4" />
-                      Preview
-                    </Button>
-                  </div>
-                  
-                  {/* Slide Number Badge */}
-                  <div className="absolute top-2 left-2">
-                    <Badge variant="secondary" className={darkMode ? 'bg-gray-800 text-white' : ''}>{index + 1}</Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <h3 className={`font-medium truncate ${darkMode ? 'text-white' : ''}`}>{slide.name}</h3>
-                    <div className={`flex items-center gap-2 text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>
-                      <Clock className="h-3 w-3" />
-                      <span>{formatDuration(slide.duration)}</span>
-                      <span>•</span>
-                      <span>{slide.elements.length} items</span>
+
+                      {/* Slide Count Badge */}
+                      <div className="absolute top-2 left-2">
+                        <Badge variant="secondary" className={darkMode ? 'bg-gray-800 text-white' : ''}>
+                          {slideCount} {slideCount === 1 ? 'slide' : 'slides'}
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className={`h-8 w-8 ${darkMode ? 'text-white hover:bg-gray-800' : ''}`}>
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className={darkMode ? 'bg-gray-900 border-gray-700' : ''}>
-                      <DropdownMenuItem onClick={() => handleEditSlide(slide.id)} className={darkMode ? 'text-white focus:bg-gray-800' : ''}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDuplicateSlide(slide)} className={darkMode ? 'text-white focus:bg-gray-800' : ''}>
-                        <Copy className="mr-2 h-4 w-4" />
-                        Duplicate
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleDeleteSlide(slide.id)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  </CardHeader>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`font-medium truncate ${darkMode ? 'text-white' : ''}`}>{show.name || 'Untitled'}</h3>
+                        <div className={`flex items-center gap-2 text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>
+                          <Clock className="h-3 w-3" />
+                          <span>{formatDuration(totalDuration)}</span>
+                          <span>•</span>
+                          <span>{slideCount} {slideCount === 1 ? 'slide' : 'slides'}</span>
+                        </div>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className={`h-8 w-8 ${darkMode ? 'text-white hover:bg-gray-800' : ''}`}>
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className={darkMode ? 'bg-gray-900 border-gray-700' : ''}>
+                          <DropdownMenuItem onClick={() => handleEditSlide(show)} className={darkMode ? 'text-white focus:bg-gray-800' : ''}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDuplicateSlide(show)} className={darkMode ? 'text-white focus:bg-gray-800' : ''}>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteSlide(show.id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+
+            {/* Add New Slide Card */}
+            <Card
+              className={`border-dashed cursor-pointer hover:bg-accent transition-colors ${darkMode ? 'bg-gray-900/50 border-gray-700 hover:bg-gray-800' : ''
+                }`}
+              onClick={() => setIsDialogOpen(true)}
+            >
+              <CardContent className="flex flex-col items-center justify-center h-full min-h-[200px]">
+                <div className={`rounded-full p-4 mb-4 ${darkMode ? 'bg-gray-800' : 'bg-primary/10'}`}>
+                  <Plus className={`h-8 w-8 ${darkMode ? 'text-white' : 'text-primary'}`} />
                 </div>
+                <h3 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>Add New Slide</h3>
+                <p className={`text-sm text-center ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>
+                  Create a new slide for your presentation
+                </p>
               </CardContent>
             </Card>
-          ))}
-
-          {/* Add New Slide Card */}
-          <Card
-            className={`border-dashed cursor-pointer hover:bg-accent transition-colors ${
-              darkMode ? 'bg-gray-900/50 border-gray-700 hover:bg-gray-800' : ''
-            }`}
-            onClick={() => setIsDialogOpen(true)}
-          >
-            <CardContent className="flex flex-col items-center justify-center h-full min-h-[200px]">
-              <div className={`rounded-full p-4 mb-4 ${darkMode ? 'bg-gray-800' : 'bg-primary/10'}`}>
-                <Plus className={`h-8 w-8 ${darkMode ? 'text-white' : 'text-primary'}`} />
-              </div>
-              <h3 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>Add New Slide</h3>
-              <p className={`text-sm text-center ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>
-                Create a new slide for your presentation
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+          </div>
+        )}
 
         {/* Presentation Info */}
         <Card className={`${darkMode ? 'bg-gray-900/80 border-gray-700' : 'bg-muted/50'}`}>
           <CardHeader>
             <CardTitle className={`text-lg ${darkMode ? 'text-white' : ''}`}>Presentation Info</CardTitle>
             <CardDescription className={darkMode ? 'text-gray-400' : ''}>
-              Details about your current slide deck
+              Details about your shows
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-4">
               <div>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>Total Shows</p>
+                <p className={`text-2xl font-bold ${darkMode ? 'text-white' : ''}`}>{shows.length}</p>
+              </div>
+              <div>
                 <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>Total Slides</p>
-                <p className={`text-2xl font-bold ${darkMode ? 'text-white' : ''}`}>{slides.length}</p>
+                <p className={`text-2xl font-bold ${darkMode ? 'text-white' : ''}`}>
+                  {shows.reduce((acc, s) => acc + getShowSlideCount(s), 0)}
+                </p>
               </div>
               <div>
                 <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>Total Duration</p>
                 <p className={`text-2xl font-bold ${darkMode ? 'text-white' : ''}`}>
-                  {formatDuration(slides.reduce((acc, s) => acc + s.duration, 0))}
-                </p>
-              </div>
-              <div>
-                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>Display URL</p>
-                <p className={`text-sm font-mono p-2 rounded mt-1 ${darkMode ? 'bg-gray-800 text-white' : 'bg-background'}`}>
-                  /display
+                  {formatDuration(shows.reduce((acc, s) => acc + getShowTotalDuration(s), 0))}
                 </p>
               </div>
             </div>

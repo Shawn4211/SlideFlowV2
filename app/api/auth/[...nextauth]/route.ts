@@ -10,16 +10,29 @@ export const authOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.username || !credentials?.password) {
+        const username = credentials.username as string;
+        const password = credentials.password as string;
+
+        if (!username || !password) {
           return null;
         }
 
-        // Single admin user authentication
-        if (credentials.username === "Admin" && credentials.password === "Password1") {
+        // Admin user accounts
+        const adminAccounts: Record<string, { password: string; id: string; name: string }> = {
+          "Admin": { password: "Password1", id: "1", name: "Admin User" },
+          "Admin2": { password: "Password2", id: "2", name: "Admin User 2" },
+          "Admin3": { password: "Password3", id: "3", name: "Admin User 3" },
+          "Admin4": { password: "Password4", id: "4", name: "Admin User 4" },
+          "Admin5": { password: "Password5", id: "5", name: "Admin User 5" },
+          "Admin6": { password: "Password6", id: "6", name: "Admin User 6" },
+        };
+
+        const account = adminAccounts[username];
+        if (account && password === account.password) {
           return {
-            id: "1",
-            email: "admin@slideflow.app",
-            name: "Admin User",
+            id: account.id,
+            email: `${username.toLowerCase()}@slideflow.app`,
+            name: account.name,
           };
         }
 
