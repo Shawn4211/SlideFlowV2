@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { User, Lock } from "lucide-react";
 
-const ADMIN_EMAIL = "admin@slideflow.app";
+const ADMIN_ACCOUNTS: Record<string, string> = {
+  "Admin": "admin@slideflow.app",
+  "Admin2": "admin2@slideflow.app",
+  "Admin3": "admin3@slideflow.app",
+  "Admin4": "admin4@slideflow.app",
+  "Admin5": "admin5@slideflow.app",
+  "Admin6": "admin6@slideflow.app",
+};
 
 /* ───────── Particle System ───────── */
 interface Particle {
@@ -153,7 +160,8 @@ export default function LoginPage() {
     setIsLoading(true);
     setError("");
 
-    if (username !== "Admin") {
+    const email = ADMIN_ACCOUNTS[username];
+    if (!email) {
       setError("Invalid username or password");
       setIsLoading(false);
       return;
@@ -161,7 +169,7 @@ export default function LoginPage() {
 
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: ADMIN_EMAIL,
+        email,
         password,
       });
 
@@ -367,6 +375,19 @@ export default function LoginPage() {
           transform: none;
         }
 
+        .lp-copyright {
+          position: absolute;
+          bottom: 16px;
+          left: 0;
+          right: 0;
+          text-align: center;
+          font-family: 'Outfit', sans-serif;
+          font-size: 0.72rem;
+          color: rgba(255,255,255,0.25);
+          z-index: 2;
+          user-select: none;
+        }
+
         @media (max-width: 480px) {
           .lp-brand {
             font-size: 2.4rem;
@@ -412,6 +433,8 @@ export default function LoginPage() {
             </form>
           </div>
         </div>
+
+        <p className="lp-copyright">© {new Date().getFullYear()} SlideFlow. All rights reserved.</p>
       </div>
     </>
   );

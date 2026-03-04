@@ -33,6 +33,13 @@ export default async function DashboardLayout({
         <main className="flex-1 p-6 overflow-auto">
           {children}
         </main>
+
+        {/* Copyright Footer */}
+        <footer className="h-10 border-t bg-card flex items-center justify-center px-6">
+          <p className="text-xs text-muted-foreground">
+            © {new Date().getFullYear()} SlideFlow. All rights reserved.
+          </p>
+        </footer>
       </div>
     </div>
   );
