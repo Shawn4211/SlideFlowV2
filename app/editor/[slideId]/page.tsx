@@ -225,8 +225,15 @@ export default function SlideEditorPage() {
           if (showJson.show.slides_data && showJson.show.slides_data.length > 0) {
             setSlides(showJson.show.slides_data);
           }
-          if (showJson.show.start_time) setScheduleStart(showJson.show.start_time.slice(0, 16));
-          if (showJson.show.finish_time) setScheduleFinish(showJson.show.finish_time.slice(0, 16));
+          // Helper to convert UTC timestamp to local datetime-local string
+          const toLocalDatetimeString = (iso: string) => {
+            const d = new Date(iso);
+            const pad = (n: number) => n.toString().padStart(2, "0");
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+          };
+
+          if (showJson.show.start_time) setScheduleStart(toLocalDatetimeString(showJson.show.start_time));
+          if (showJson.show.finish_time) setScheduleFinish(toLocalDatetimeString(showJson.show.finish_time));
           setIsLoadingContent(false);
           return;
         }
@@ -714,8 +721,8 @@ export default function SlideEditorPage() {
           contentId: params.slideId === "new" ? undefined : params.slideId,
           name: slideName,
           slidesData: slides,
-          startTime: scheduleStart || null,
-          finishTime: scheduleFinish || null,
+          startTime: scheduleStart ? new Date(scheduleStart).toISOString() : null,
+          finishTime: scheduleFinish ? new Date(scheduleFinish).toISOString() : null,
         }),
       });
 
