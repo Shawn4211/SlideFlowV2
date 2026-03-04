@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/shows/active — returns the currently active show and the next upcoming show
 export async function GET() {
     try {

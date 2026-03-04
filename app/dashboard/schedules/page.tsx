@@ -214,12 +214,17 @@ export default function SchedulesPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this schedule?")) return;
+    if (!confirm("Are you sure you want to remove this project from the schedule?")) return;
     try {
-      await fetch(`/api/shows?id=${id}`, { method: "DELETE" });
+      // Clear the schedule instead of deleting the entire project
+      await fetch("/api/shows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, startTime: null, finishTime: null }),
+      });
       fetchShows();
     } catch (err) {
-      console.error("Failed to delete show:", err);
+      console.error("Failed to remove schedule:", err);
     }
   };
 
