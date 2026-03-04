@@ -87,12 +87,15 @@ export default function DashboardPage() {
             Overview of your digital signage presentation
           </p>
         </div>
-        <Link href="/display" target="_blank">
-          <Button>
-            <ExternalLink className="mr-2 h-4 w-4" />
-            Open Display
-          </Button>
-        </Link>
+        <Button onClick={() => {
+          if (currentShow && Array.isArray(currentShow.slides_data)) {
+            localStorage.setItem("slideflow_slides", JSON.stringify(currentShow.slides_data));
+          }
+          window.open("/display", "_blank");
+        }}>
+          <ExternalLink className="mr-2 h-4 w-4" />
+          Open Display
+        </Button>
       </div>
 
       {/* Stats Grid */}
