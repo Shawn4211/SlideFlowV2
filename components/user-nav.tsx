@@ -35,8 +35,8 @@ export function UserNav() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.push("/auth/login");
-    router.refresh();
+    localStorage.removeItem("slideflow_current_user");
+    window.location.href = "/auth/login";
   };
 
   return (
@@ -56,16 +56,16 @@ export function UserNav() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push("/dashboard/credentials")}>
+        <DropdownMenuItem onSelect={() => router.push("/dashboard/credentials")}>
           <User className="mr-2 h-4 w-4" />
           <span>Credentials</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
+        <DropdownMenuItem onSelect={() => router.push("/dashboard/settings")}>
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut}>
+        <DropdownMenuItem onSelect={handleSignOut}>
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
         </DropdownMenuItem>
