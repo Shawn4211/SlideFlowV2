@@ -5,14 +5,6 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { User, Lock, Eye, EyeOff } from "lucide-react";
 
-const ADMIN_ACCOUNTS: Record<string, string> = {
-  "Admin": "admin@slideflow.app",
-  "Admin2": "admin2@slideflow.app",
-  "Admin3": "admin3@slideflow.app",
-  "Admin4": "admin4@slideflow.app",
-  "Admin5": "admin5@slideflow.app",
-  "Admin6": "admin6@slideflow.app",
-};
 
 /* ───────── Particle System ───────── */
 interface Particle {
@@ -168,17 +160,28 @@ export default function LoginPage() {
     setIsLoading(true);
     setError("");
 
-    const email = ADMIN_ACCOUNTS[username];
-    if (!email) {
+    // Validate credentials in code
+    const CREDENTIALS: Record<string, string> = {
+      "Admin": "Password1",
+      "Admin2": "Password2",
+      "Admin3": "Password3",
+      "Admin4": "Password4",
+      "Admin5": "Password5",
+      "Admin6": "Password6",
+    };
+
+    const expectedPassword = CREDENTIALS[username];
+    if (!expectedPassword || password !== expectedPassword) {
       setError("Invalid username or password");
       setIsLoading(false);
       return;
     }
 
     try {
+      // All accounts share the main Supabase Auth session
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: "admin@slideflow.app",
+        password: "Password1",
       });
 
       if (authError) {
@@ -190,6 +193,8 @@ export default function LoginPage() {
         } else {
           localStorage.removeItem("slideflow_remember_user");
         }
+        // Store the display name for the UI
+        localStorage.setItem("slideflow_current_user", username);
         router.push("/dashboard");
         router.refresh();
       }
