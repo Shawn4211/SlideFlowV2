@@ -179,8 +179,8 @@ function CyclingSlidePreview({
                             key={i}
                             onClick={() => setIndex(i)}
                             className={`h-2 rounded-full transition-all duration-300 ${i === index
-                                    ? "w-6 bg-primary"
-                                    : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                                ? "w-6 bg-primary"
+                                : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"
                                 }`}
                         />
                     ))}
@@ -195,6 +195,7 @@ function CyclingSlidePreview({
 export default function DisplayDashboardPage() {
     const [currentShow, setCurrentShow] = useState<Show | null>(null);
     const [nextShow, setNextShow] = useState<Show | null>(null);
+    const [manualPresent, setManualPresent] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
@@ -204,6 +205,7 @@ export default function DisplayDashboardPage() {
             const data = await res.json();
             setCurrentShow(data.currentShow ?? null);
             setNextShow(data.nextShow ?? null);
+            setManualPresent(data.manualPresent ?? null);
             setLastRefreshed(new Date());
         } catch (err) {
             console.error("Failed to fetch active shows:", err);
@@ -263,20 +265,50 @@ export default function DisplayDashboardPage() {
                                     <Tv2 className="h-5 w-5 text-primary" />
                                     <CardTitle>Currently Displaying</CardTitle>
                                 </div>
-                                {currentShow && (
-                                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+                                {(manualPresent || currentShow) && (
+                                    <Badge className={manualPresent ? "bg-purple-100 text-purple-700 hover:bg-purple-100" : "bg-green-100 text-green-700 hover:bg-green-100"}>
                                         <span className="relative flex h-2 w-2 mr-1.5">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
-                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-600" />
+                                            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${manualPresent ? 'bg-purple-500' : 'bg-green-500'} opacity-75`} />
+                                            <span className={`relative inline-flex rounded-full h-2 w-2 ${manualPresent ? 'bg-purple-600' : 'bg-green-600'}`} />
                                         </span>
-                                        Live
+                                        {manualPresent ? "Manual Present" : "Live"}
                                     </Badge>
                                 )}
                             </div>
                         </CardHeader>
 
                         <CardContent>
-                            {currentShow && currentShow.slides_data?.length > 0 ? (
+                            {manualPresent && manualPresent.slides_data?.length > 0 ? (
+                                <div className="space-y-4">
+                                    {/* Manual present slide preview */}
+                                    <div className="border rounded-xl overflow-hidden shadow-sm">
+                                        <CyclingSlidePreview
+                                            slides={manualPresent.slides_data}
+                                            className="border-0"
+                                        />
+                                    </div>
+
+                                    {/* Show info */}
+                                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                                        <div>
+                                            <p className="font-semibold">{manualPresent.show_name || "Manual Present"}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {manualPresent.slides_data.length} slide
+                                                {manualPresent.slides_data.length !== 1 && "s"}
+                                                {" • Manually presented"}
+                                            </p>
+                                        </div>
+                                        {manualPresent.started_at && (
+                                            <div className="text-right text-xs text-muted-foreground">
+                                                <div className="flex items-center gap-1">
+                                                    <Clock className="h-3 w-3" />
+                                                    Since {formatDateTime(manualPresent.started_at)}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : currentShow && currentShow.slides_data?.length > 0 ? (
                                 <div className="space-y-4">
                                     {/* Slide preview */}
                                     <div className="border rounded-xl overflow-hidden shadow-sm">
@@ -322,7 +354,14 @@ export default function DisplayDashboardPage() {
                                         >
                                             Schedules
                                         </Link>{" "}
-                                        page to see it here.
+                                        page or use the Present button on the{" "}
+                                        <Link
+                                            href="/dashboard/screens"
+                                            className="text-primary underline underline-offset-2"
+                                        >
+                                            Screens
+                                        </Link>{" "}
+                                        page.
                                     </p>
                                 </div>
                             )}

@@ -45,49 +45,24 @@ interface ActiveShow {
   content?: { id: number; name: string; type: string; file_url: string } | null;
 }
 
-// Default slides if none exist
-const defaultSlides: Slide[] = [
-  {
-    id: "1",
-    name: "Welcome Slide",
-    elements: [
-      {
-        id: "1",
-        type: "text",
-        x: 100,
-        y: 150,
-        width: 760,
-        height: 100,
-        content: "Welcome to Our Digital Signage",
-        style: {
-          fontSize: 48,
-          color: "#ffffff",
-          fontFamily: "Arial",
-          fontWeight: "bold",
-          textAlign: "center",
-        },
-      },
-    ],
-    backgroundColor: "#4F46E5",
-    duration: 10,
-  },
-];
+// No default welcome slides — display stays blank/black until API provides content
 
 export default function DisplayPage() {
   const router = useRouter();
-  const [slides, setSlides] = useState<Slide[]>(defaultSlides);
+  const [slides, setSlides] = useState<Slide[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [showControls, setShowControls] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Track whether we're driven by a scheduled show
+  // Track what's currently displayed
   const [activeShowName, setActiveShowName] = useState<string | null>(null);
   const [nextShowStart, setNextShowStart] = useState<string | null>(null);
-  // Track whether a manual "Present" was triggered via localStorage
-  const manualPresentRef = useRef(false);
+  // Track the current source ID so we know when to reset slide index
+  const currentSourceRef = useRef<string | null>(null);
 
-  const currentSlide = slides[currentSlideIndex] || slides[0];
+  const currentSlide = slides.length > 0 ? (slides[currentSlideIndex] || slides[0]) : null;
 
   // Auto-hide controls after mouse inactivity
   const resetHideTimer = useCallback(() => {
@@ -116,30 +91,35 @@ export default function DisplayPage() {
       const current: ActiveShow | null = data.currentShow ?? null;
       const next: ActiveShow | null = data.nextShow ?? null;
 
-      // Manual present takes highest priority
+      // Determine what should be displayed: manual present > scheduled show > nothing
+      let newSlides: Slide[] = [];
+      let newName: string | null = null;
+      let sourceId: string | null = null;
+
       if (manual && manual.slides_data && manual.slides_data.length > 0) {
-        setSlides(manual.slides_data);
-        setCurrentSlideIndex(0);
-        setActiveShowName(manual.show_name || "Manual Present");
-        manualPresentRef.current = true;
+        newSlides = manual.slides_data;
+        newName = manual.show_name || "Manual Present";
+        sourceId = `manual-${manual.started_at}`;
       } else if (current && current.slides_data && current.slides_data.length > 0) {
-        // Fall back to scheduled show
-        setSlides(current.slides_data);
+        newSlides = current.slides_data;
+        newName = current.name;
+        sourceId = `show-${current.id}`;
+      }
+
+      // Only reset slide index when the source changes (new present, new show, etc.)
+      if (sourceId !== currentSourceRef.current) {
+        setSlides(newSlides);
         setCurrentSlideIndex(0);
-        setActiveShowName(current.name);
-        manualPresentRef.current = false;
-      } else if (manualPresentRef.current) {
-        // Manual present was cleared — fall back to defaults
-        setSlides(defaultSlides);
-        setCurrentSlideIndex(0);
-        setActiveShowName(null);
-        manualPresentRef.current = false;
+        setActiveShowName(newName);
+        currentSourceRef.current = sourceId;
       }
 
       // Track the next upcoming show's start time for auto-transition
       setNextShowStart(next?.start_time ?? null);
     } catch (err) {
       console.error("Failed to fetch active shows:", err);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -158,14 +138,14 @@ export default function DisplayPage() {
 
   // Auto-advance slides
   useEffect(() => {
-    if (!isPlaying || slides.length <= 1) return;
+    if (!isPlaying || slides.length <= 1 || !currentSlide) return;
 
     const timer = setInterval(() => {
       setCurrentSlideIndex((prev) => (prev + 1) % slides.length);
     }, currentSlide.duration * 1000);
 
     return () => clearInterval(timer);
-  }, [currentSlideIndex, slides.length, currentSlide.duration, isPlaying]);
+  }, [currentSlideIndex, slides.length, currentSlide?.duration, isPlaying]);
 
   // Full page reload every 5 minutes
   useEffect(() => {
@@ -225,68 +205,73 @@ export default function DisplayPage() {
       onMouseMove={resetHideTimer}
     >
       {/* Slide Content */}
-      <div
-        className="w-full h-full relative"
-        style={{ backgroundColor: currentSlide.backgroundColor }}
-      >
-        {currentSlide.elements.map((element) => (
-          <div
-            key={element.id}
-            className="absolute"
-            style={{
-              left: `${(element.x / 960) * 100}%`,
-              top: `${(element.y / 540) * 100}%`,
-              width: `${(element.width / 960) * 100}%`,
-              height: `${(element.height / 540) * 100}%`,
-              fontSize: element.style.fontSize ? `${(element.style.fontSize / 960) * 100}vw` : undefined,
-              color: element.style.color,
-              fontFamily: element.style.fontFamily,
-              fontWeight: element.style.fontWeight,
-              fontStyle: element.style.fontStyle,
-              textAlign: element.style.textAlign,
-              textDecoration: element.style.textDecoration,
-              backgroundColor: element.type === "shape" ? element.style.backgroundColor : undefined,
-              borderRadius: element.style.borderRadius,
-              clipPath: element.style.clipPath,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: element.style.textAlign === "center" ? "center" : element.style.textAlign === "right" ? "flex-end" : "flex-start",
-            }}
-          >
-            {element.type === "text" && (
-              <span className="w-full" style={{ textAlign: element.style.textAlign, whiteSpace: "pre-wrap" }}>
-                {element.content}
-              </span>
-            )}
-            {element.type === "image" && element.src && (
-              <img
-                src={element.src}
-                alt=""
-                className="w-full h-full object-contain"
-              />
-            )}
-            {element.type === "video" && element.src && (
-              <video
-                src={element.src}
-                className="w-full h-full object-contain"
-                autoPlay
-                muted
-                loop
-              />
-            )}
-            {element.type === "shape" && (
-              <div
-                className="w-full h-full"
-                style={{
-                  backgroundColor: element.style.backgroundColor,
-                  borderRadius: element.style.borderRadius,
-                  clipPath: element.style.clipPath,
-                }}
-              />
-            )}
-          </div>
-        ))}
-      </div>
+      {currentSlide ? (
+        <div
+          className="w-full h-full relative"
+          style={{ backgroundColor: currentSlide.backgroundColor }}
+        >
+          {currentSlide.elements.map((element) => (
+            <div
+              key={element.id}
+              className="absolute"
+              style={{
+                left: `${(element.x / 960) * 100}%`,
+                top: `${(element.y / 540) * 100}%`,
+                width: `${(element.width / 960) * 100}%`,
+                height: `${(element.height / 540) * 100}%`,
+                fontSize: element.style.fontSize ? `${(element.style.fontSize / 960) * 100}vw` : undefined,
+                color: element.style.color,
+                fontFamily: element.style.fontFamily,
+                fontWeight: element.style.fontWeight,
+                fontStyle: element.style.fontStyle,
+                textAlign: element.style.textAlign,
+                textDecoration: element.style.textDecoration,
+                backgroundColor: element.type === "shape" ? element.style.backgroundColor : undefined,
+                borderRadius: element.style.borderRadius,
+                clipPath: element.style.clipPath,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: element.style.textAlign === "center" ? "center" : element.style.textAlign === "right" ? "flex-end" : "flex-start",
+              }}
+            >
+              {element.type === "text" && (
+                <span className="w-full" style={{ textAlign: element.style.textAlign, whiteSpace: "pre-wrap" }}>
+                  {element.content}
+                </span>
+              )}
+              {element.type === "image" && element.src && (
+                <img
+                  src={element.src}
+                  alt=""
+                  className="w-full h-full object-contain"
+                />
+              )}
+              {element.type === "video" && element.src && (
+                <video
+                  src={element.src}
+                  className="w-full h-full object-contain"
+                  autoPlay
+                  muted
+                  loop
+                />
+              )}
+              {element.type === "shape" && (
+                <div
+                  className="w-full h-full"
+                  style={{
+                    backgroundColor: element.style.backgroundColor,
+                    borderRadius: element.style.borderRadius,
+                    clipPath: element.style.clipPath,
+                  }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* Black screen when loading or no active content */
+        <div className="w-full h-full bg-black" />
+      )}
 
       {/* Controls Overlay */}
       <>
