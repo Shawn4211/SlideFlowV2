@@ -138,18 +138,38 @@ export default function ScreensPage() {
     }
   };
 
-  const handlePresent = (show?: Show) => {
+  const handlePresent = async (show?: Show) => {
+    let slidesData: any[] = [];
+    let showName = "Manual Present";
+    let showId: number | undefined;
+
     if (show) {
       // Present a specific show
-      localStorage.setItem("slideflow_slides", JSON.stringify(show.slides_data || []));
+      slidesData = show.slides_data || [];
+      showName = show.name || "Untitled";
+      showId = show.id;
     } else {
       // Present all shows combined
-      const allSlides = shows.flatMap((s) => (Array.isArray(s.slides_data) ? s.slides_data : []));
-      localStorage.setItem("slideflow_slides", JSON.stringify(allSlides));
+      slidesData = shows.flatMap((s) => (Array.isArray(s.slides_data) ? s.slides_data : []));
+      showName = "All Projects";
     }
+
+    try {
+      await fetch("/api/shows/present", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          showId: showId || null,
+          showName,
+          slidesData,
+        }),
+      });
+    } catch (error) {
+      console.error("Error starting presentation:", error);
+    }
+
     setIsPresentDialogOpen(false);
     setPresentSearch("");
-    window.open("/display", "_blank");
   };
 
   const filteredShowsForPresent = shows.filter((show) =>

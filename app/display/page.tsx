@@ -106,21 +106,34 @@ export default function DisplayPage() {
     };
   }, [resetHideTimer]);
 
-  // ── Fetch scheduled shows from the database ──
+  // ── Fetch active shows and manual present from the database ──
   const fetchActiveShow = useCallback(async () => {
     try {
       const res = await fetch("/api/shows/active");
       const data = await res.json();
 
+      const manual = data.manualPresent ?? null;
       const current: ActiveShow | null = data.currentShow ?? null;
       const next: ActiveShow | null = data.nextShow ?? null;
 
-      // If there's a currently active scheduled show with slides, use it
-      if (current && current.slides_data && current.slides_data.length > 0) {
+      // Manual present takes highest priority
+      if (manual && manual.slides_data && manual.slides_data.length > 0) {
+        setSlides(manual.slides_data);
+        setCurrentSlideIndex(0);
+        setActiveShowName(manual.show_name || "Manual Present");
+        manualPresentRef.current = true;
+      } else if (current && current.slides_data && current.slides_data.length > 0) {
+        // Fall back to scheduled show
         setSlides(current.slides_data);
         setCurrentSlideIndex(0);
         setActiveShowName(current.name);
-        manualPresentRef.current = false; // override manual present
+        manualPresentRef.current = false;
+      } else if (manualPresentRef.current) {
+        // Manual present was cleared — fall back to defaults
+        setSlides(defaultSlides);
+        setCurrentSlideIndex(0);
+        setActiveShowName(null);
+        manualPresentRef.current = false;
       }
 
       // Track the next upcoming show's start time for auto-transition
@@ -130,50 +143,16 @@ export default function DisplayPage() {
     }
   }, []);
 
-  // On mount: check localStorage first (manual present), then fetch scheduled
+  // On mount: fetch from API (handles both manual presents and scheduled shows)
   useEffect(() => {
-    const savedSlides = localStorage.getItem("slideflow_slides");
-    if (savedSlides) {
-      try {
-        const parsed = JSON.parse(savedSlides);
-        if (parsed.length > 0) {
-          setSlides(parsed);
-          manualPresentRef.current = true;
-        }
-      } catch (e) {
-        console.error("Error loading slides:", e);
-      }
-    }
-
-    // Always fetch scheduled shows — active scheduled show takes priority
     fetchActiveShow();
   }, [fetchActiveShow]);
 
-  // Listen for slides update from editor (manual present via localStorage)
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const savedSlides = localStorage.getItem("slideflow_slides");
-      if (savedSlides) {
-        try {
-          const parsed = JSON.parse(savedSlides);
-          if (parsed.length > 0) {
-            setSlides(parsed);
-            manualPresentRef.current = true;
-            setActiveShowName(null);
-          }
-        } catch (e) {
-          console.error("Error loading slides:", e);
-        }
-      }
-    };
 
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
 
-  // Poll /api/shows/active every 30 seconds to pick up new scheduled shows
+  // Poll /api/shows/active every 5 seconds to pick up presents and scheduled shows
   useEffect(() => {
-    const interval = setInterval(fetchActiveShow, 30_000);
+    const interval = setInterval(fetchActiveShow, 5_000);
     return () => clearInterval(interval);
   }, [fetchActiveShow]);
 
@@ -275,7 +254,7 @@ export default function DisplayPage() {
             }}
           >
             {element.type === "text" && (
-              <span className="w-full" style={{ textAlign: element.style.textAlign }}>
+              <span className="w-full" style={{ textAlign: element.style.textAlign, whiteSpace: "pre-wrap" }}>
                 {element.content}
               </span>
             )}

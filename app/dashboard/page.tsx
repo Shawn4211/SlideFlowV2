@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LayoutDashboard, Presentation, Activity, Clock, ExternalLink, Edit, MonitorPlay } from "lucide-react";
+import { LayoutDashboard, Presentation, Activity, Clock, ExternalLink, Edit, MonitorPlay, StopCircle } from "lucide-react";
 import Link from "next/link";
 
 interface Show {
@@ -18,33 +18,58 @@ interface Show {
   updated_at: string;
 }
 
+interface ManualPresent {
+  id: number;
+  show_id: number | null;
+  slides_data: any[];
+  show_name: string | null;
+  started_at: string;
+}
+
 export default function DashboardPage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [currentShow, setCurrentShow] = useState<Show | null>(null);
   const [nextShow, setNextShow] = useState<Show | null>(null);
+  const [manualPresent, setManualPresent] = useState<ManualPresent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isStopping, setIsStopping] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      const [showsRes, activeRes] = await Promise.all([
+        fetch("/api/shows"),
+        fetch("/api/shows/active"),
+      ]);
+      const showsData = await showsRes.json();
+      const activeData = await activeRes.json();
+
+      setShows(showsData.shows || []);
+      setCurrentShow(activeData.currentShow || null);
+      setNextShow(activeData.nextShow || null);
+      setManualPresent(activeData.manualPresent || null);
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [showsRes, activeRes] = await Promise.all([
-          fetch("/api/shows"),
-          fetch("/api/shows/active"),
-        ]);
-        const showsData = await showsRes.json();
-        const activeData = await activeRes.json();
-
-        setShows(showsData.shows || []);
-        setCurrentShow(activeData.currentShow || null);
-        setNextShow(activeData.nextShow || null);
-      } catch (error) {
-        console.error("Error loading dashboard data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchData();
   }, []);
+
+  const handleStopPresent = async () => {
+    setIsStopping(true);
+    try {
+      await fetch("/api/shows/present", { method: "DELETE" });
+      setManualPresent(null);
+      await fetchData();
+    } catch (error) {
+      console.error("Error stopping presentation:", error);
+    } finally {
+      setIsStopping(false);
+    }
+  };
 
   const totalSlides = shows.reduce(
     (acc, s) => acc + (Array.isArray(s.slides_data) ? s.slides_data.length : 0),
@@ -87,15 +112,22 @@ export default function DashboardPage() {
             Overview of your digital signage presentation
           </p>
         </div>
-        <Button onClick={() => {
-          if (currentShow && Array.isArray(currentShow.slides_data)) {
-            localStorage.setItem("slideflow_slides", JSON.stringify(currentShow.slides_data));
-          }
-          window.open("/display", "_blank");
-        }}>
-          <ExternalLink className="mr-2 h-4 w-4" />
-          Open Display
-        </Button>
+        <div className="flex items-center gap-2">
+          {manualPresent && (
+            <Button
+              variant="destructive"
+              onClick={handleStopPresent}
+              disabled={isStopping}
+            >
+              <StopCircle className="mr-2 h-4 w-4" />
+              {isStopping ? "Stopping..." : "Stop Present"}
+            </Button>
+          )}
+          <Button onClick={() => window.open("/display", "_blank")}>
+            <ExternalLink className="mr-2 h-4 w-4" />
+            Open Display
+          </Button>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -160,6 +192,33 @@ export default function DashboardPage() {
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Now Playing</p>
                 {isLoading ? (
                   <p className="text-sm text-muted-foreground">Loading...</p>
+                ) : manualPresent ? (
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-blue-50 border-blue-200">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded bg-blue-100 flex items-center justify-center">
+                        <Presentation className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{manualPresent.show_name || "Manual Present"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Started {formatDateTime(manualPresent.started_at)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default" className="bg-blue-600">Presenting</Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={handleStopPresent}
+                        disabled={isStopping}
+                        title="Stop Present"
+                      >
+                        <StopCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                 ) : currentShow ? (
                   <div className="flex items-center justify-between p-3 border rounded-lg bg-green-50 border-green-200">
                     <div className="flex items-center gap-3">

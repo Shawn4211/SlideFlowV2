@@ -739,7 +739,7 @@ export default function SlideEditorPage() {
         }
       }
 
-      localStorage.setItem("slideflow_slides", JSON.stringify(slides));
+
       saveToHistory(slides, currentSlideIndex);
 
       setSaveMessage("Saved!");
@@ -760,10 +760,21 @@ export default function SlideEditorPage() {
     await saveSlide();
   };
 
-  // Present slides
-  const presentSlides = () => {
-    localStorage.setItem("slideflow_slides", JSON.stringify(slides));
-    window.open("/display", "_blank");
+  // Present slides via server-side API
+  const presentSlides = async () => {
+    try {
+      await fetch("/api/shows/present", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          showId: savedShowId || null,
+          showName: slideName || "Untitled",
+          slidesData: slides,
+        }),
+      });
+    } catch (error) {
+      console.error("Error starting presentation:", error);
+    }
   };
 
   // Load default Pexels images when dialog opens
@@ -772,9 +783,6 @@ export default function SlideEditorPage() {
       searchPexels("business");
     }
   }, [isPexelsOpen]);
-
-  // Note: slides are saved to the database via saveSlide().
-  // localStorage is only used for the display/present feature.
 
   const selectedElementData = currentSlide.elements.find((e) => e.id === selectedElement);
 
@@ -1326,7 +1334,7 @@ export default function SlideEditorPage() {
                         textDecoration: element.style.textDecoration,
                         wordWrap: "break-word",
                         overflowWrap: "break-word",
-                        whiteSpace: "normal",
+                        whiteSpace: "pre-wrap",
                         lineHeight: "1.4",
                       }}
                       contentEditable={editingTextId === element.id}
