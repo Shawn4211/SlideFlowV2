@@ -29,10 +29,11 @@ interface ManualPresent {
 export default function DashboardPage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [currentShow, setCurrentShow] = useState<Show | null>(null);
-  const [nextShow, setNextShow] = useState<Show | null>(null);
+  const [upcomingShows, setUpcomingShows] = useState<Show[]>([]);
   const [manualPresent, setManualPresent] = useState<ManualPresent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isStopping, setIsStopping] = useState(false);
+  const [isStoppingShow, setIsStoppingShow] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -45,7 +46,7 @@ export default function DashboardPage() {
 
       setShows(showsData.shows || []);
       setCurrentShow(activeData.currentShow || null);
-      setNextShow(activeData.nextShow || null);
+      setUpcomingShows(activeData.upcomingShows || (activeData.nextShow ? [activeData.nextShow] : []));
       setManualPresent(activeData.manualPresent || null);
     } catch (error) {
       console.error("Error loading dashboard data:", error);
@@ -68,6 +69,22 @@ export default function DashboardPage() {
       console.error("Error stopping presentation:", error);
     } finally {
       setIsStopping(false);
+    }
+  };
+
+  const handleStopShow = async (showId: number) => {
+    setIsStoppingShow(true);
+    try {
+      await fetch("/api/shows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: showId, startTime: null, finishTime: null }),
+      });
+      await fetchData();
+    } catch (error) {
+      console.error("Error stopping show:", error);
+    } finally {
+      setIsStoppingShow(false);
     }
   };
 
@@ -240,6 +257,16 @@ export default function DashboardPage() {
                           <Edit className="h-4 w-4" />
                         </Button>
                       </Link>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => handleStopShow(currentShow.id)}
+                        disabled={isStoppingShow}
+                        title="Stop Show"
+                      >
+                        <StopCircle className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 ) : (
@@ -254,27 +281,41 @@ export default function DashboardPage() {
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Up Next</p>
                 {isLoading ? (
                   <p className="text-sm text-muted-foreground">Loading...</p>
-                ) : nextShow ? (
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center">
-                        <Clock className="h-5 w-5 text-primary" />
+                ) : upcomingShows.length > 0 ? (
+                  <div className="space-y-2">
+                    {upcomingShows.map((show) => (
+                      <div key={show.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center">
+                            <Clock className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{show.name || "Untitled"}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Starts {show.start_time && formatDateTime(show.start_time)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">Scheduled</Badge>
+                          <Link href={`/editor/${show.id}`}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => handleStopShow(show.id)}
+                            disabled={isStoppingShow}
+                            title="Cancel Schedule"
+                          >
+                            <StopCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">{nextShow.name || "Untitled"}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Starts {nextShow.start_time && formatDateTime(nextShow.start_time)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">Scheduled</Badge>
-                      <Link href={`/editor/${nextShow.id}`}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                    </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="p-3 border rounded-lg border-dashed text-center">

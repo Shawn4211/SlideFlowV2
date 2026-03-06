@@ -77,12 +77,12 @@ function SlidePreview({
         >
             <div
                 className="absolute inset-0"
-                style={{ backgroundColor: slide.backgroundColor }}
+                style={{ backgroundColor: slide.backgroundColor, containerType: "inline-size" }}
             >
                 {slide.elements.map((el) => (
                     <div
                         key={el.id}
-                        className="absolute"
+                        className="absolute overflow-hidden"
                         style={{
                             left: `${(el.x / 960) * 100}%`,
                             top: `${(el.y / 540) * 100}%`,
@@ -109,7 +109,6 @@ function SlidePreview({
                                     : el.style.textAlign === "right"
                                         ? "flex-end"
                                         : "flex-start",
-                            containerType: "inline-size",
                         }}
                     >
                         {el.type === "text" && (
@@ -194,7 +193,7 @@ function CyclingSlidePreview({
 
 export default function DisplayDashboardPage() {
     const [currentShow, setCurrentShow] = useState<Show | null>(null);
-    const [nextShow, setNextShow] = useState<Show | null>(null);
+    const [upcomingShows, setUpcomingShows] = useState<Show[]>([]);
     const [manualPresent, setManualPresent] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
@@ -204,7 +203,7 @@ export default function DisplayDashboardPage() {
             const res = await fetch("/api/shows/active");
             const data = await res.json();
             setCurrentShow(data.currentShow ?? null);
-            setNextShow(data.nextShow ?? null);
+            setUpcomingShows(data.upcomingShows ?? (data.nextShow ? [data.nextShow] : []));
             setManualPresent(data.manualPresent ?? null);
             setLastRefreshed(new Date());
         } catch (err) {
@@ -378,47 +377,45 @@ export default function DisplayDashboardPage() {
                         </CardHeader>
 
                         <CardContent>
-                            {nextShow && nextShow.slides_data?.length > 0 ? (
+                            {upcomingShows.length > 0 ? (
                                 <div className="space-y-4">
-                                    {/* Thumbnail of first slide */}
-                                    <div className="border rounded-lg overflow-hidden shadow-sm">
-                                        <SlidePreview slide={nextShow.slides_data[0]} />
-                                    </div>
+                                    {upcomingShows.map((show) => (
+                                        <div key={show.id} className="space-y-3 pb-4 border-b last:border-b-0 last:pb-0">
+                                            {/* Thumbnail of first slide */}
+                                            {show.slides_data?.length > 0 ? (
+                                                <div className="border rounded-lg overflow-hidden shadow-sm">
+                                                    <SlidePreview slide={show.slides_data[0]} />
+                                                </div>
+                                            ) : (
+                                                <div className="rounded-lg bg-muted flex items-center justify-center"
+                                                    style={{ paddingBottom: "56.25%" }}
+                                                />
+                                            )}
 
-                                    {/* Info */}
-                                    <div className="space-y-2">
-                                        <p className="font-semibold">{nextShow.name}</p>
-                                        {nextShow.content && (
-                                            <p className="text-xs text-muted-foreground">
-                                                {nextShow.content.name}
-                                            </p>
-                                        )}
-                                        <p className="text-xs text-muted-foreground">
-                                            {nextShow.slides_data.length} slide
-                                            {nextShow.slides_data.length !== 1 && "s"}
-                                        </p>
+                                            {/* Info */}
+                                            <div className="space-y-2">
+                                                <p className="font-semibold">{show.name}</p>
+                                                {show.content && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {show.content.name}
+                                                    </p>
+                                                )}
+                                                {show.slides_data && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {show.slides_data.length} slide
+                                                        {show.slides_data.length !== 1 && "s"}
+                                                    </p>
+                                                )}
 
-                                        {nextShow.start_time && (
-                                            <div className="flex items-center gap-1.5 text-xs p-2 bg-blue-50 text-blue-700 rounded-md dark:bg-blue-950 dark:text-blue-300">
-                                                <Clock className="h-3 w-3" />
-                                                Starts {formatDateTime(nextShow.start_time)}
+                                                {show.start_time && (
+                                                    <div className="flex items-center gap-1.5 text-xs p-2 bg-blue-50 text-blue-700 rounded-md dark:bg-blue-950 dark:text-blue-300">
+                                                        <Clock className="h-3 w-3" />
+                                                        Starts {formatDateTime(show.start_time)}
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : nextShow ? (
-                                <div className="space-y-3">
-                                    <div className="rounded-lg bg-muted flex items-center justify-center"
-                                        style={{ paddingBottom: "56.25%" }}
-                                    >
-                                    </div>
-                                    <p className="font-semibold">{nextShow.name}</p>
-                                    {nextShow.start_time && (
-                                        <div className="flex items-center gap-1.5 text-xs p-2 bg-blue-50 text-blue-700 rounded-md dark:bg-blue-950 dark:text-blue-300">
-                                            <Clock className="h-3 w-3" />
-                                            Starts {formatDateTime(nextShow.start_time)}
                                         </div>
-                                    )}
+                                    ))}
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-10 text-center">

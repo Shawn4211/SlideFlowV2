@@ -24,17 +24,17 @@ export async function GET() {
             .order("start_time", { ascending: true })
             .limit(1);
 
-        // Next upcoming show: start_time > now, ordered by soonest first
+        // Upcoming shows: start_time > now, ordered by soonest first
         const { data: upcomingShows } = await supabase
             .from("show")
             .select("*, content(*)")
             .gt("start_time", now)
-            .order("start_time", { ascending: true })
-            .limit(1);
+            .order("start_time", { ascending: true });
 
         return NextResponse.json({
             currentShow: activeShows?.[0] ?? null,
             nextShow: upcomingShows?.[0] ?? null,
+            upcomingShows: upcomingShows ?? [],
             manualPresent: manualPresent ?? null,
         });
     } catch (error) {
