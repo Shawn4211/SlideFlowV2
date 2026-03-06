@@ -135,6 +135,7 @@ export default function SlideEditorPage() {
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const [scheduleStart, setScheduleStart] = useState("");
   const [scheduleFinish, setScheduleFinish] = useState("");
+  const [scheduleError, setScheduleError] = useState("");
   const [zoom, setZoom] = useState(100);
   const [slides, setSlides] = useState<Slide[]>([
     {
@@ -717,7 +718,21 @@ export default function SlideEditorPage() {
   };
 
   const scheduleShow = async () => {
-    if (!scheduleStart || !scheduleFinish) return;
+    setScheduleError("");
+
+    if (!scheduleStart || !scheduleFinish) {
+      setScheduleError("Please set both a start time and finish time.");
+      return;
+    }
+
+    const startDate = new Date(scheduleStart);
+    const finishDate = new Date(scheduleFinish);
+
+    if (finishDate <= startDate) {
+      setScheduleError("Finish time must be after the start time.");
+      return;
+    }
+
     setIsScheduleOpen(false);
     await saveSlide();
   };
@@ -904,6 +919,11 @@ export default function SlideEditorPage() {
                         className={`w-full rounded-md border px-3 py-2 text-sm ${darkMode ? 'bg-[#2a3042] border-[#3a4156] text-white' : 'bg-white border-gray-300'}`}
                       />
                     </div>
+                    {scheduleError && (
+                      <div className="text-xs text-red-500 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded px-2 py-1.5">
+                        {scheduleError}
+                      </div>
+                    )}
                     <div className="flex gap-2 pt-1">
                       <Button
                         size="sm"
@@ -917,7 +937,7 @@ export default function SlideEditorPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => { setScheduleStart(""); setScheduleFinish(""); }}
+                          onClick={() => { setScheduleStart(""); setScheduleFinish(""); setScheduleError(""); }}
                           className={`${darkMode ? 'editor-button hover:bg-[#3a4156]' : ''}`}
                         >
                           Clear

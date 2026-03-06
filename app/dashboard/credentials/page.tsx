@@ -134,6 +134,14 @@ export default function CredentialsPage() {
 
   const handlePasswordUpdate = async () => {
     setPasswordMessage("");
+    if (!passwords.current) {
+      setPasswordMessage("Please enter your current password.");
+      return;
+    }
+    if (!passwords.new_pw) {
+      setPasswordMessage("Please enter a new password.");
+      return;
+    }
     if (passwords.new_pw !== passwords.confirm) {
       setPasswordMessage("New passwords do not match.");
       return;

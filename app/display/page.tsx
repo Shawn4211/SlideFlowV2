@@ -187,7 +187,7 @@ export default function DisplayPage() {
       style={{ cursor: showControls ? 'default' : 'none' }}
       onMouseMove={resetHideTimer}
     >
-      
+
       {currentSlide ? (
         <div
           className="w-full h-full relative"
@@ -252,13 +252,13 @@ export default function DisplayPage() {
           ))}
         </div>
       ) : (
-        
+
         <div className="w-full h-full bg-black" />
       )}
 
-      
+
       <>
-        
+
         <div
           className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start bg-gradient-to-b from-black/50 to-transparent"
           style={{
@@ -285,19 +285,18 @@ export default function DisplayPage() {
           </Button>
         </div>
 
-        
+
         <div
-          className="absolute inset-0 flex items-center justify-between px-4"
+          className="absolute inset-0 flex items-center justify-between px-4 pointer-events-none"
           style={{
             opacity: showControls ? 1 : 0,
             transition: 'opacity 0.4s ease',
-            pointerEvents: showControls ? 'auto' : 'none',
           }}
         >
           <Button
             variant="ghost"
             size="icon"
-            className="text-white hover:bg-white/20 h-16 w-16"
+            className="text-white hover:bg-white/20 h-16 w-16 pointer-events-auto"
             onClick={goToPreviousSlide}
             disabled={slides.length <= 1}
           >
@@ -306,7 +305,7 @@ export default function DisplayPage() {
           <Button
             variant="ghost"
             size="icon"
-            className="text-white hover:bg-white/20 h-16 w-16"
+            className="text-white hover:bg-white/20 h-16 w-16 pointer-events-auto"
             onClick={goToNextSlide}
             disabled={slides.length <= 1}
           >
@@ -314,7 +313,7 @@ export default function DisplayPage() {
           </Button>
         </div>
 
-        
+
         <div
           className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/50 to-transparent"
           style={{
@@ -324,7 +323,7 @@ export default function DisplayPage() {
           }}
         >
           <div className="flex items-center justify-between">
-            
+
             <div className="flex-1 mx-4">
               <div className="h-1 bg-white/20 rounded-full overflow-hidden">
                 <div
@@ -336,7 +335,7 @@ export default function DisplayPage() {
               </div>
             </div>
 
-            
+
             <Button
               variant="ghost"
               size="icon"
@@ -351,14 +350,14 @@ export default function DisplayPage() {
             </Button>
           </div>
 
-          
+
           <div className="text-center mt-2 text-white/40 text-xs">
             Use ← → arrow keys to navigate • Space to pause • ESC to exit
           </div>
         </div>
       </>
 
-      
+
       {slides.length === 0 && (
         <div className="w-full h-full flex items-center justify-center bg-gray-900">
           <div className="text-center text-white/60">

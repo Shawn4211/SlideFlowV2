@@ -15,6 +15,7 @@ import {
   FileText,
   CalendarClock,
   X,
+  AlertCircle,
 } from "lucide-react";
 
 interface Show {
@@ -84,6 +85,7 @@ export default function SchedulesPage() {
   const [formExistingShowId, setFormExistingShowId] = useState("");
   const [formStart, setFormStart] = useState("");
   const [formFinish, setFormFinish] = useState("");
+  const [formError, setFormError] = useState("");
 
   const fetchShows = async () => {
     setLoading(true);
@@ -124,6 +126,7 @@ export default function SchedulesPage() {
     setFormExistingShowId("");
     setFormStart("");
     setFormFinish("");
+    setFormError("");
     setEditingShowId(null);
   };
 
@@ -152,10 +155,51 @@ export default function SchedulesPage() {
   };
 
   const handleSave = async () => {
-    if (!formStart || !formFinish) return;
+    setFormError("");
+
+    // Validate: must select a show or content (unless editing)
+    if (!editingShowId && !formExistingShowId && !formContentId) {
+      setFormError("Please select a saved slide or content to schedule.");
+      return;
+    }
+
+    // Validate: start and finish times are required
+    if (!formStart || !formFinish) {
+      setFormError("Please set both a start time and finish time.");
+      return;
+    }
 
     const isoStart = toISOFromLocal(formStart);
     const isoFinish = toISOFromLocal(formFinish);
+    const startDate = new Date(isoStart);
+    const finishDate = new Date(isoFinish);
+
+    // Validate: finish must be after start
+    if (finishDate <= startDate) {
+      setFormError("Finish time must be after the start time.");
+      return;
+    }
+
+    // Validate: no overlapping schedules with existing shows
+    const overlapping = shows.find((s) => {
+      // Skip the show we're currently editing
+      if (editingShowId && s.id === editingShowId) return false;
+      if (formExistingShowId && s.id === parseInt(formExistingShowId, 10)) return false;
+      if (!s.start_time || !s.finish_time) return false;
+
+      const existingStart = new Date(s.start_time);
+      const existingFinish = new Date(s.finish_time);
+
+      // Two time ranges overlap if one starts before the other ends, and vice versa
+      return startDate < existingFinish && finishDate > existingStart;
+    });
+
+    if (overlapping) {
+      setFormError(
+        `This time overlaps with "${overlapping.name}" (${formatDateTime(overlapping.start_time!)} – ${formatDateTime(overlapping.finish_time!)}). Please choose a different time.`
+      );
+      return;
+    }
 
     if (formExistingShowId) {
       try {
@@ -237,7 +281,7 @@ export default function SchedulesPage() {
         </Button>
       </div>
 
-      
+
       {isCreateOpen && (
         <Card className="border-2 border-primary/20">
           <CardHeader className="pb-3">
@@ -328,11 +372,17 @@ export default function SchedulesPage() {
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
               </div>
+              {formError && (
+                <div className="sm:col-span-2 flex items-center gap-2 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-700 dark:text-red-400">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  {formError}
+                </div>
+              )}
               <div className="sm:col-span-2 flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => { setIsCreateOpen(false); resetForm(); }}>
                   Cancel
                 </Button>
-                <Button onClick={handleSave} disabled={!formStart || !formFinish}>
+                <Button onClick={handleSave}>
                   {editingShowId ? "Update Schedule" : "Create Schedule"}
                 </Button>
               </div>
@@ -342,14 +392,14 @@ export default function SchedulesPage() {
       )
       }
 
-      
+
       {
         loading && (
           <div className="text-center py-12 text-muted-foreground">Loading schedules...</div>
         )
       }
 
-      
+
       {
         !loading && shows.length > 0 && (
           <div className="grid gap-4">
@@ -411,7 +461,7 @@ export default function SchedulesPage() {
         )
       }
 
-      
+
       {
         !loading && shows.length === 0 && !isCreateOpen && (
           <Card className="border-dashed">

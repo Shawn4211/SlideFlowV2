@@ -118,6 +118,7 @@ export default function ScreensPage() {
   };
 
   const handleDeleteSlide = async (showId: number) => {
+    if (!confirm("Are you sure you want to delete this show? This action cannot be undone.")) return;
     try {
       const response = await fetch(`/api/shows?id=${showId}`, {
         method: "DELETE",
@@ -190,7 +191,7 @@ export default function ScreensPage() {
 
   return (
     <div className={darkMode ? 'dark' : ''}>
-      
+
       <style jsx global>{`
         .dark {
           background-color: ${DARK_BG} !important;
@@ -335,14 +336,14 @@ export default function ScreensPage() {
           </div>
         </div>
 
-        
+
         {isLoading && (
           <div className="flex items-center justify-center py-12">
             <p className={darkMode ? 'text-gray-400' : 'text-muted-foreground'}>Loading shows...</p>
           </div>
         )}
 
-        
+
         {!isLoading && (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {shows.map((show, index) => {
@@ -358,7 +359,7 @@ export default function ScreensPage() {
                       style={{ backgroundColor: previewSlide?.backgroundColor || (darkMode ? '#0a0a0a' : '#ffffff') }}
                       onClick={() => handleEditSlide(show)}
                     >
-                      
+
                       {previewSlide && (
                         <div className="absolute inset-0 overflow-hidden">
                           {(previewSlide.elements || []).map((element: any) => (
@@ -407,7 +408,7 @@ export default function ScreensPage() {
                         </div>
                       )}
 
-                      
+
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                         <Button
                           size="sm"
@@ -432,7 +433,7 @@ export default function ScreensPage() {
                         </Button>
                       </div>
 
-                      
+
                       <div className="absolute top-2 left-2">
                         <Badge variant="secondary" className={darkMode ? 'bg-gray-800 text-white' : ''}>
                           {slideCount} {slideCount === 1 ? 'slide' : 'slides'}
@@ -481,7 +482,7 @@ export default function ScreensPage() {
               );
             })}
 
-            
+
             <Card
               className={`border-dashed cursor-pointer hover:bg-accent transition-colors ${darkMode ? 'bg-gray-900/50 border-gray-700 hover:bg-gray-800' : ''
                 }`}
@@ -500,7 +501,7 @@ export default function ScreensPage() {
           </div>
         )}
 
-        
+
         <Card className={`${darkMode ? 'bg-gray-900/80 border-gray-700' : 'bg-muted/50'}`}>
           <CardHeader>
             <CardTitle className={`text-lg ${darkMode ? 'text-white' : ''}`}>Presentation Info</CardTitle>

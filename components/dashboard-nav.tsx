@@ -11,6 +11,7 @@ import {
   Calendar,
   Tv2,
   Settings,
+  Info,
 } from "lucide-react";
 
 const navItems = [
@@ -48,6 +49,11 @@ const navItems = [
     title: "Settings",
     href: "/dashboard/settings",
     icon: Settings,
+  },
+  {
+    title: "About",
+    href: "/dashboard/about",
+    icon: Info,
   },
 ];
 
