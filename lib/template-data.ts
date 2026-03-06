@@ -1,5 +1,3 @@
-// Template Data Library for SlideFlow
-// Each template uses the same Slide/SlideElement structure as the editor
 
 export interface SlideElement {
     id: string;
@@ -55,7 +53,6 @@ export const TEMPLATE_GENRES = [
 const uid = () => Math.random().toString(36).substr(2, 9);
 
 export const SLIDE_TEMPLATES: SlideTemplate[] = [
-    // ─── ANNOUNCEMENTS ───
     {
         id: "tmpl-announce-general",
         name: "General Announcement",
@@ -112,7 +109,6 @@ export const SLIDE_TEMPLATES: SlideTemplate[] = [
             ],
         }],
     },
-    // ─── CORPORATE ───
     {
         id: "tmpl-corp-meeting",
         name: "Company Meeting",
@@ -199,7 +195,6 @@ export const SLIDE_TEMPLATES: SlideTemplate[] = [
             ],
         }],
     },
-    // ─── SAFETY ───
     {
         id: "tmpl-safety-warning",
         name: "Warning Alert",
@@ -258,7 +253,6 @@ export const SLIDE_TEMPLATES: SlideTemplate[] = [
             ],
         }],
     },
-    // ─── EDUCATION ───
     {
         id: "tmpl-edu-back-to-school",
         name: "Back to School",
@@ -316,7 +310,6 @@ export const SLIDE_TEMPLATES: SlideTemplate[] = [
             ],
         }],
     },
-    // ─── EVENTS ───
     {
         id: "tmpl-event-promotion",
         name: "Event Promotion",
@@ -383,7 +376,6 @@ export const SLIDE_TEMPLATES: SlideTemplate[] = [
             ],
         }],
     },
-    // ─── SOCIAL MEDIA ───
     {
         id: "tmpl-social-quote",
         name: "Quote of the Day",

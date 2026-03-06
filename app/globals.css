@@ -125,8 +125,6 @@
   }
 }
 
-/* Login page: prevent flash of unstyled content (FOUC) */
-/* These styles load server-side before JS hydration */
 .lp {
   min-height: 100vh;
   background: #080c14;

@@ -3,7 +3,6 @@ import { supabase } from "@/lib/supabase";
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/shows/present — returns the current manual present (if any)
 export async function GET() {
     try {
         const { data, error } = await supabase
@@ -23,7 +22,6 @@ export async function GET() {
     }
 }
 
-// POST /api/shows/present — set a manual present
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
@@ -36,7 +34,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Upsert: insert or update the single row (id=1)
         const { data, error } = await supabase
             .from("active_present")
             .upsert({
@@ -67,7 +64,6 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// DELETE /api/shows/present — clear the manual present
 export async function DELETE() {
     try {
         const { error } = await supabase

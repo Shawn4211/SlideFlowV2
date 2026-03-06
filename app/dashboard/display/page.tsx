@@ -7,7 +7,7 @@ import { Tv2, Clock, CalendarClock, MonitorPlay, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-/* ── Shared types (mirrors display/page.tsx) ── */
+
 
 interface SlideElement {
     id: string;
@@ -49,7 +49,7 @@ interface Show {
     content?: { id: number; name: string; type: string; file_url: string } | null;
 }
 
-/* ── Helpers ── */
+
 
 function formatDateTime(iso: string) {
     return new Date(iso).toLocaleString("en-US", {
@@ -61,7 +61,7 @@ function formatDateTime(iso: string) {
     });
 }
 
-/* ── Slide renderer (scaled preview) ── */
+
 
 function SlidePreview({
     slide,
@@ -73,7 +73,7 @@ function SlidePreview({
     return (
         <div
             className={`relative w-full overflow-hidden rounded-lg ${className}`}
-            style={{ paddingBottom: "56.25%" /* 16:9 */ }}
+            style={{ paddingBottom: "56.25%"  }}
         >
             <div
                 className="absolute inset-0"
@@ -145,7 +145,7 @@ function SlidePreview({
     );
 }
 
-/* ── Auto-cycling slide preview ── */
+
 
 function CyclingSlidePreview({
     slides,
@@ -189,7 +189,7 @@ function CyclingSlidePreview({
     );
 }
 
-/* ── Page ── */
+
 
 export default function DisplayDashboardPage() {
     const [currentShow, setCurrentShow] = useState<Show | null>(null);
@@ -213,7 +213,6 @@ export default function DisplayDashboardPage() {
         }
     }, []);
 
-    // Initial fetch + 30 s polling
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 30_000);
@@ -222,7 +221,7 @@ export default function DisplayDashboardPage() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
+            
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Display</h1>
@@ -246,17 +245,17 @@ export default function DisplayDashboardPage() {
                 </div>
             </div>
 
-            {/* Loading */}
+            
             {loading && (
                 <div className="text-center py-20 text-muted-foreground">
                     Loading display status…
                 </div>
             )}
 
-            {/* Main content area */}
+            
             {!loading && (
                 <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-                    {/* ── Currently Displaying (center / main) ── */}
+                    
                     <Card className="overflow-hidden">
                         <CardHeader className="pb-3">
                             <div className="flex items-center justify-between">
@@ -279,7 +278,7 @@ export default function DisplayDashboardPage() {
                         <CardContent>
                             {manualPresent && manualPresent.slides_data?.length > 0 ? (
                                 <div className="space-y-4">
-                                    {/* Manual present slide preview */}
+                                    
                                     <div className="border rounded-xl overflow-hidden shadow-sm">
                                         <CyclingSlidePreview
                                             slides={manualPresent.slides_data}
@@ -287,7 +286,7 @@ export default function DisplayDashboardPage() {
                                         />
                                     </div>
 
-                                    {/* Show info */}
+                                    
                                     <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                                         <div>
                                             <p className="font-semibold">{manualPresent.show_name || "Manual Present"}</p>
@@ -309,7 +308,7 @@ export default function DisplayDashboardPage() {
                                 </div>
                             ) : currentShow && currentShow.slides_data?.length > 0 ? (
                                 <div className="space-y-4">
-                                    {/* Slide preview */}
+                                    
                                     <div className="border rounded-xl overflow-hidden shadow-sm">
                                         <CyclingSlidePreview
                                             slides={currentShow.slides_data}
@@ -317,7 +316,7 @@ export default function DisplayDashboardPage() {
                                         />
                                     </div>
 
-                                    {/* Show info */}
+                                    
                                     <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                                         <div>
                                             <p className="font-semibold">{currentShow.name}</p>
@@ -339,7 +338,7 @@ export default function DisplayDashboardPage() {
                                     </div>
                                 </div>
                             ) : (
-                                /* Empty state */
+                                
                                 <div className="flex flex-col items-center justify-center py-16 text-center">
                                     <div className="rounded-full bg-muted p-5 mb-4">
                                         <Tv2 className="h-10 w-10 text-muted-foreground/50" />
@@ -367,7 +366,7 @@ export default function DisplayDashboardPage() {
                         </CardContent>
                     </Card>
 
-                    {/* ── Up Next (right sidebar) ── */}
+                    
                     <Card className="h-fit">
                         <CardHeader className="pb-3">
                             <div className="flex items-center gap-2">
@@ -381,7 +380,7 @@ export default function DisplayDashboardPage() {
                                 <div className="space-y-4">
                                     {upcomingShows.map((show) => (
                                         <div key={show.id} className="space-y-3 pb-4 border-b last:border-b-0 last:pb-0">
-                                            {/* Thumbnail of first slide */}
+                                            
                                             {show.slides_data?.length > 0 ? (
                                                 <div className="border rounded-lg overflow-hidden shadow-sm">
                                                     <SlidePreview slide={show.slides_data[0]} />
@@ -392,7 +391,7 @@ export default function DisplayDashboardPage() {
                                                 />
                                             )}
 
-                                            {/* Info */}
+                                            
                                             <div className="space-y-2">
                                                 <p className="font-semibold">{show.name}</p>
                                                 {show.content && (

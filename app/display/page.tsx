@@ -45,8 +45,6 @@ interface ActiveShow {
   content?: { id: number; name: string; type: string; file_url: string } | null;
 }
 
-// No default welcome slides — display stays blank/black until API provides content
-
 export default function DisplayPage() {
   const router = useRouter();
   const [slides, setSlides] = useState<Slide[]>([]);
@@ -56,15 +54,12 @@ export default function DisplayPage() {
   const [isLoading, setIsLoading] = useState(true);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Track what's currently displayed
   const [activeShowName, setActiveShowName] = useState<string | null>(null);
   const [nextShowStart, setNextShowStart] = useState<string | null>(null);
-  // Track the current source ID so we know when to reset slide index
   const currentSourceRef = useRef<string | null>(null);
 
   const currentSlide = slides.length > 0 ? (slides[currentSlideIndex] || slides[0]) : null;
 
-  // Auto-hide controls after mouse inactivity
   const resetHideTimer = useCallback(() => {
     setShowControls(true);
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -73,7 +68,6 @@ export default function DisplayPage() {
     }, 3000);
   }, []);
 
-  // Start the hide timer on mount
   useEffect(() => {
     resetHideTimer();
     return () => {
@@ -81,7 +75,6 @@ export default function DisplayPage() {
     };
   }, [resetHideTimer]);
 
-  // ── Fetch active shows and manual present from the database ──
   const fetchActiveShow = useCallback(async () => {
     try {
       const res = await fetch("/api/shows/active");
@@ -91,7 +84,6 @@ export default function DisplayPage() {
       const current: ActiveShow | null = data.currentShow ?? null;
       const next: ActiveShow | null = data.nextShow ?? null;
 
-      // Determine what should be displayed: manual present > scheduled show > nothing
       let newSlides: Slide[] = [];
       let newName: string | null = null;
       let sourceId: string | null = null;
@@ -106,7 +98,6 @@ export default function DisplayPage() {
         sourceId = `show-${current.id}`;
       }
 
-      // Only reset slide index when the source changes (new present, new show, etc.)
       if (sourceId !== currentSourceRef.current) {
         setSlides(newSlides);
         setCurrentSlideIndex(0);
@@ -114,7 +105,6 @@ export default function DisplayPage() {
         currentSourceRef.current = sourceId;
       }
 
-      // Track the next upcoming show's start time for auto-transition
       setNextShowStart(next?.start_time ?? null);
     } catch (err) {
       console.error("Failed to fetch active shows:", err);
@@ -123,20 +113,15 @@ export default function DisplayPage() {
     }
   }, []);
 
-  // On mount: fetch from API (handles both manual presents and scheduled shows)
   useEffect(() => {
     fetchActiveShow();
   }, [fetchActiveShow]);
 
-
-
-  // Poll /api/shows/active every 5 seconds to pick up presents and scheduled shows
   useEffect(() => {
     const interval = setInterval(fetchActiveShow, 5_000);
     return () => clearInterval(interval);
   }, [fetchActiveShow]);
 
-  // Auto-advance slides
   useEffect(() => {
     if (!isPlaying || slides.length <= 1 || !currentSlide) return;
 
@@ -147,7 +132,6 @@ export default function DisplayPage() {
     return () => clearInterval(timer);
   }, [currentSlideIndex, slides.length, currentSlide?.duration, isPlaying]);
 
-  // Full page reload every 5 minutes
   useEffect(() => {
     const reloadTimer = setInterval(() => {
       window.location.reload();
@@ -156,7 +140,6 @@ export default function DisplayPage() {
     return () => clearInterval(reloadTimer);
   }, []);
 
-  // Arrow key navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft") {
@@ -204,7 +187,7 @@ export default function DisplayPage() {
       style={{ cursor: showControls ? 'default' : 'none' }}
       onMouseMove={resetHideTimer}
     >
-      {/* Slide Content */}
+      
       {currentSlide ? (
         <div
           className="w-full h-full relative"
@@ -269,13 +252,13 @@ export default function DisplayPage() {
           ))}
         </div>
       ) : (
-        /* Black screen when loading or no active content */
+        
         <div className="w-full h-full bg-black" />
       )}
 
-      {/* Controls Overlay */}
+      
       <>
-        {/* Top Bar */}
+        
         <div
           className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start bg-gradient-to-b from-black/50 to-transparent"
           style={{
@@ -302,7 +285,7 @@ export default function DisplayPage() {
           </Button>
         </div>
 
-        {/* Navigation Controls */}
+        
         <div
           className="absolute inset-0 flex items-center justify-between px-4"
           style={{
@@ -331,7 +314,7 @@ export default function DisplayPage() {
           </Button>
         </div>
 
-        {/* Bottom Bar */}
+        
         <div
           className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/50 to-transparent"
           style={{
@@ -341,7 +324,7 @@ export default function DisplayPage() {
           }}
         >
           <div className="flex items-center justify-between">
-            {/* Progress Bar */}
+            
             <div className="flex-1 mx-4">
               <div className="h-1 bg-white/20 rounded-full overflow-hidden">
                 <div
@@ -353,7 +336,7 @@ export default function DisplayPage() {
               </div>
             </div>
 
-            {/* Play/Pause Button */}
+            
             <Button
               variant="ghost"
               size="icon"
@@ -368,14 +351,14 @@ export default function DisplayPage() {
             </Button>
           </div>
 
-          {/* Keyboard Shortcuts Hint */}
+          
           <div className="text-center mt-2 text-white/40 text-xs">
             Use ← → arrow keys to navigate • Space to pause • ESC to exit
           </div>
         </div>
       </>
 
-      {/* No Slides Message */}
+      
       {slides.length === 0 && (
         <div className="w-full h-full flex items-center justify-center bg-gray-900">
           <div className="text-center text-white/60">

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-// import { Card } from "@/components/ui/card";
+
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
@@ -53,7 +53,6 @@ import {
 import Link from "next/link";
 import { SLIDE_TEMPLATES, TEMPLATE_GENRES, SlideTemplate } from "@/lib/template-data";
 
-// Types
 interface SlideElement {
   id: string;
   type: "text" | "image" | "shape" | "video";
@@ -93,10 +92,8 @@ interface HistoryState {
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | null;
 
-// Pexels API
 const PEXELS_API_KEY = "L6w1BIl04BhqryxVmqQUz4OuVe0Ve4dIYBkQqpfYT2Dv0IXDiTxaxMMD";
 
-// Font options
 const FONTS = [
   "Arial",
   "Helvetica",
@@ -110,7 +107,6 @@ const FONTS = [
   "Palatino",
 ];
 
-// Dark mode colors - Light Gray Theme
 const DARK_BG = "#4a5568"; // Lighter gray background
 const DARK_BG_LIGHTER = "#5a6578"; // Even lighter for panels
 const DARK_BG_DARKER = "#3a4558"; // Darker for inputs
@@ -157,17 +153,14 @@ export default function SlideEditorPage() {
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-  // History for undo/redo
   const [history, setHistory] = useState<HistoryState[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
-  // Pexels search
   const [isPexelsOpen, setIsPexelsOpen] = useState(false);
   const [pexelsSearch, setPexelsSearch] = useState("");
   const [pexelsImages, setPexelsImages] = useState<any[]>([]);
   const [isPexelsLoading, setIsPexelsLoading] = useState(false);
 
-  // Templates
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [templateSearch, setTemplateSearch] = useState("");
@@ -175,7 +168,6 @@ export default function SlideEditorPage() {
 
   const currentSlide = slides[currentSlideIndex];
 
-  // Auth check — redirect if not logged in
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
@@ -186,16 +178,14 @@ export default function SlideEditorPage() {
     });
   }, [router]);
 
-  // Load content from Supabase when editing existing content
   useEffect(() => {
     const loadContent = async () => {
       const contentId = params.slideId as string;
 
-      // Only attempt to load from DB if slideId is a valid numeric content ID
       const isNumericId = contentId && !isNaN(parseInt(contentId, 10));
 
       if (!isNumericId) {
-        // Check if the screens page stored a name for this new show
+
         const storedName = localStorage.getItem("slideflow_new_show_name");
         if (storedName) {
           setSlideName(storedName);
@@ -206,8 +196,8 @@ export default function SlideEditorPage() {
       }
 
       try {
-        // Try loading by show ID first (when navigating from screens page),
-        // then fall back to loading by content ID
+
+
         let showJson: any = { show: null };
 
         const showByIdRes = await fetch(`/api/shows?id=${contentId}`);
@@ -219,13 +209,13 @@ export default function SlideEditorPage() {
         }
 
         if (showJson.show) {
-          // Load saved show data
+
           setSavedShowId(showJson.show.id);
           setSlideName(showJson.show.name || "Untitled Slide");
           if (showJson.show.slides_data && showJson.show.slides_data.length > 0) {
             setSlides(showJson.show.slides_data);
           }
-          // Helper to convert UTC timestamp to local datetime-local string
+
           const toLocalDatetimeString = (iso: string) => {
             const d = new Date(iso);
             const pad = (n: number) => n.toString().padStart(2, "0");
@@ -238,7 +228,6 @@ export default function SlideEditorPage() {
           return;
         }
 
-        // No saved slide data - load from content table
         const { data, error } = await supabase
           .from("content")
           .select("*")
@@ -251,10 +240,8 @@ export default function SlideEditorPage() {
           return;
         }
 
-        // Set the slide name from the content
         setSlideName(data.name || "Untitled Slide");
 
-        // Create an element based on the content type
         if (data.file_url && (data.type === "image" || data.type === "video")) {
           const contentElement: SlideElement = {
             id: Math.random().toString(36).substr(2, 9),
@@ -275,7 +262,7 @@ export default function SlideEditorPage() {
             duration: data.duration || 10,
           }]);
         } else {
-          // For documents or other types, show the name as text
+
           const textElement: SlideElement = {
             id: Math.random().toString(36).substr(2, 9),
             type: "text",
@@ -313,7 +300,6 @@ export default function SlideEditorPage() {
     loadContent();
   }, [params.slideId]);
 
-  // Load dark mode preference
   useEffect(() => {
     const savedDarkMode = localStorage.getItem("slideflow_darkmode");
     if (savedDarkMode) {
@@ -321,12 +307,10 @@ export default function SlideEditorPage() {
     }
   }, []);
 
-  // Save dark mode preference
   useEffect(() => {
     localStorage.setItem("slideflow_darkmode", JSON.stringify(darkMode));
   }, [darkMode]);
 
-  // Save to history
   const saveToHistory = useCallback((newSlides: Slide[], newIndex: number) => {
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push({ slides: JSON.parse(JSON.stringify(newSlides)), currentSlideIndex: newIndex });
@@ -334,7 +318,6 @@ export default function SlideEditorPage() {
     setHistoryIndex(newHistory.length - 1);
   }, [history, historyIndex]);
 
-  // Undo
   const undo = () => {
     if (historyIndex > 0) {
       const prevState = history[historyIndex - 1];
@@ -344,7 +327,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Redo
   const redo = () => {
     if (historyIndex < history.length - 1) {
       const nextState = history[historyIndex + 1];
@@ -354,14 +336,12 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Initialize history
   useEffect(() => {
     if (history.length === 0) {
       saveToHistory(slides, currentSlideIndex);
     }
   }, []);
 
-  // Add text
   const addText = () => {
     const newElement: SlideElement = {
       id: Math.random().toString(36).substr(2, 9),
@@ -388,7 +368,6 @@ export default function SlideEditorPage() {
     setSelectedElement(newElement.id);
   };
 
-  // Add shape
   const addShape = (shapeType: string) => {
     let style: any = {
       backgroundColor: shapeType === "circle" ? "#EF4444" : shapeType === "triangle" ? "#F59E0B" : "#3B82F6",
@@ -416,7 +395,6 @@ export default function SlideEditorPage() {
     setSelectedElement(newElement.id);
   };
 
-  // Add image
   const addImage = (src: string) => {
     const newElement: SlideElement = {
       id: Math.random().toString(36).substr(2, 9),
@@ -435,7 +413,6 @@ export default function SlideEditorPage() {
     setSelectedElement(newElement.id);
   };
 
-  // Search Pexels
   const searchPexels = async (query: string = pexelsSearch) => {
     const searchTerm = query.trim() || "nature";
     setIsPexelsLoading(true);
@@ -456,7 +433,6 @@ export default function SlideEditorPage() {
     setIsPexelsLoading(false);
   };
 
-  // Filter templates based on genre and search
   const filteredEditorTemplates = SLIDE_TEMPLATES.filter((t) => {
     const matchesGenre = selectedGenre === "All" || t.genre === selectedGenre;
     if (!matchesGenre) return false;
@@ -465,7 +441,6 @@ export default function SlideEditorPage() {
     return t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q) || t.tags.some((tag) => tag.toLowerCase().includes(q));
   });
 
-  // Import template into current editor
   const importTemplate = (template: SlideTemplate) => {
     const clonedSlides = JSON.parse(JSON.stringify(template.slides)).map((slide: any, i: number) => ({
       ...slide,
@@ -482,7 +457,6 @@ export default function SlideEditorPage() {
     setSlideName((prev) => prev === "Untitled Slide" ? template.name : prev);
   };
 
-  // Handle file upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -511,7 +485,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Update element
   const updateElement = (id: string, updates: Partial<SlideElement>) => {
     const newSlides = [...slides];
     const element = newSlides[currentSlideIndex].elements.find((e) => e.id === id);
@@ -521,7 +494,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Update element style
   const updateElementStyle = (id: string, styleUpdates: Partial<SlideElement["style"]>) => {
     const newSlides = [...slides];
     const element = newSlides[currentSlideIndex].elements.find((e) => e.id === id);
@@ -531,7 +503,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Delete element
   const deleteElement = () => {
     if (selectedElement) {
       const newSlides = [...slides];
@@ -544,7 +515,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Delete" || e.key === "Backspace") {
@@ -571,17 +541,16 @@ export default function SlideEditorPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedElement, historyIndex, history]);
 
-  // Mouse handlers for dragging
   const handleMouseDown = (e: React.MouseEvent, elementId: string) => {
-    // Don't drag if clicking on resize handles
+
     if ((e.target as HTMLElement).dataset.resizeHandle) return;
-    // Don't drag if we're actively editing this text element
+
     if (editingTextId === elementId) return;
 
     e.preventDefault();
     e.stopPropagation();
     setSelectedElement(elementId);
-    // Exit text editing if we click a different element
+
     if (editingTextId && editingTextId !== elementId) {
       setEditingTextId(null);
     }
@@ -599,7 +568,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Mouse handlers for resizing
   const handleResizeStart = (e: React.MouseEvent, handle: ResizeHandle) => {
     e.preventDefault();
     e.stopPropagation();
@@ -668,7 +636,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Add new slide
   const addNewSlide = () => {
     const newSlide: Slide = {
       id: Math.random().toString(36).substr(2, 9),
@@ -683,7 +650,6 @@ export default function SlideEditorPage() {
     setCurrentSlideIndex(newSlides.length - 1);
   };
 
-  // Duplicate slide
   const duplicateSlide = () => {
     const duplicated: Slide = {
       ...JSON.parse(JSON.stringify(currentSlide)),
@@ -697,7 +663,6 @@ export default function SlideEditorPage() {
     setCurrentSlideIndex(currentSlideIndex + 1);
   };
 
-  // Delete slide
   const deleteSlide = () => {
     if (slides.length > 1) {
       const newSlides = slides.filter((_, i) => i !== currentSlideIndex);
@@ -708,7 +673,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Save show to database
   const saveSlide = async () => {
     setIsSaving(true);
     setSaveMessage(null);
@@ -732,8 +696,7 @@ export default function SlideEditorPage() {
       if (data.show?.id) {
         setSavedShowId(data.show.id);
 
-        // If this was a new slide, update the URL without reloading the page
-        // so that if they refresh or copy the link, it loads this specific show
+
         if (params.slideId === "new") {
           window.history.replaceState(null, "", `/editor/${data.show.id}`);
         }
@@ -753,14 +716,12 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Schedule the show
   const scheduleShow = async () => {
     if (!scheduleStart || !scheduleFinish) return;
     setIsScheduleOpen(false);
     await saveSlide();
   };
 
-  // Present slides via server-side API
   const presentSlides = async () => {
     try {
       await fetch("/api/shows/present", {
@@ -777,7 +738,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Load default Pexels images when dialog opens
   useEffect(() => {
     if (isPexelsOpen && pexelsImages.length === 0) {
       searchPexels("business");
@@ -786,10 +746,9 @@ export default function SlideEditorPage() {
 
   const selectedElementData = currentSlide.elements.find((e) => e.id === selectedElement);
 
-  // Resize handles component
   const ResizeHandles = ({ elementId }: { elementId: string }) => (
     <>
-      {/* Corner resize handles */}
+
       <div
         data-resize-handle="nw"
         className="absolute -top-1 -left-1 w-3 h-3 bg-primary border-2 border-white rounded-full cursor-nw-resize z-20"
@@ -824,7 +783,7 @@ export default function SlideEditorPage() {
   return (
     <TooltipProvider>
       <div className={`h-screen flex flex-col ${darkMode ? 'editor-dark' : ''}`}>
-        {/* Dark Mode Theme Styles */}
+
         <style jsx global>{`
           .editor-dark {
             background-color: ${DARK_BG};
@@ -861,7 +820,7 @@ export default function SlideEditorPage() {
           }
         `}</style>
 
-        {/* Top Toolbar */}
+
         <header className={`h-14 border-b flex items-center justify-between px-4 ${darkMode
           ? 'editor-panel'
           : 'bg-card border-border'
@@ -994,15 +953,15 @@ export default function SlideEditorPage() {
           </div>
         </header>
 
-        {/* Main Editor Area */}
+
         <div className="flex-1 flex overflow-hidden">
-          {/* Left Sidebar - Tools & Slides */}
+
           {showLeftPanel && (
             <div className={`w-72 border-r flex flex-col ${darkMode
               ? 'bg-gray-900/90 border-gray-700 city-lights'
               : 'bg-card'
               }`}>
-              {/* Tools */}
+
               <div className={`p-4 border-b ${darkMode ? 'border-gray-700' : ''}`}>
                 <h3 className={`text-sm font-medium mb-3 ${darkMode ? 'text-white' : ''}`}>Tools</h3>
                 <div className="grid grid-cols-4 gap-2">
@@ -1081,7 +1040,7 @@ export default function SlideEditorPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className={`h-9 w-9 ${darkMode ? 'hover:bg-gray-700' : ''}`}
+                              className={`h-9 w-9 ${darkMode ? 'text-white hover:bg-gray-700' : ''}`}
                               onClick={() => { addShape("rect"); setShowShapesMenu(false); }}
                             >
                               <Square className="h-4 w-4" />
@@ -1094,7 +1053,7 @@ export default function SlideEditorPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className={`h-9 w-9 ${darkMode ? 'hover:bg-gray-700' : ''}`}
+                              className={`h-9 w-9 ${darkMode ? 'text-white hover:bg-gray-700' : ''}`}
                               onClick={() => { addShape("circle"); setShowShapesMenu(false); }}
                             >
                               <Circle className="h-4 w-4" />
@@ -1107,7 +1066,7 @@ export default function SlideEditorPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className={`h-9 w-9 ${darkMode ? 'hover:bg-gray-700' : ''}`}
+                              className={`h-9 w-9 ${darkMode ? 'text-white hover:bg-gray-700' : ''}`}
                               onClick={() => { addShape("triangle"); setShowShapesMenu(false); }}
                             >
                               <Triangle className="h-4 w-4" />
@@ -1130,7 +1089,7 @@ export default function SlideEditorPage() {
                 </div>
               </div>
 
-              {/* Actions */}
+
               <div className={`p-4 border-b ${darkMode ? 'border-gray-700' : ''}`}>
                 <h3 className={`text-sm font-medium mb-3 ${darkMode ? 'text-white' : ''}`}>Actions</h3>
                 <div className="flex gap-2">
@@ -1163,14 +1122,19 @@ export default function SlideEditorPage() {
                 </div>
               </div>
 
-              {/* Slide Thumbnails */}
+
               <ScrollArea className="flex-1">
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className={`text-sm font-medium ${darkMode ? 'text-white' : ''}`}>Slides</h3>
-                    <Button variant="ghost" size="icon" className={`h-6 w-6 ${darkMode ? 'text-white hover:bg-gray-800' : ''}`} onClick={addNewSlide}>
-                      <Plus className="h-3 w-3" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className={`h-6 w-6 ${darkMode ? 'text-white hover:bg-gray-800' : ''}`} onClick={addNewSlide}>
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">Add Slides</TooltipContent>
+                    </Tooltip>
                   </div>
                   <div className="space-y-2">
                     {slides.map((slide, index) => (
@@ -1190,7 +1154,7 @@ export default function SlideEditorPage() {
                         }}
                         onClick={() => setCurrentSlideIndex(index)}
                       >
-                        {/* Render slide elements as thumbnails */}
+
                         <div className="absolute inset-0" style={{ transform: "scale(0.25)", transformOrigin: "top left" }}>
                           <div className="relative w-[960px] h-[540px]">
                             {slide.backgroundImage && (
@@ -1232,7 +1196,7 @@ export default function SlideEditorPage() {
                           </div>
                         </div>
 
-                        {/* Slide number badge */}
+
                         <div className="absolute top-1 left-1 z-10">
                           <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${darkMode ? 'bg-gray-800 text-white' : 'bg-background/90'
                             }`}>
@@ -1245,7 +1209,7 @@ export default function SlideEditorPage() {
                 </div>
               </ScrollArea>
 
-              {/* Slide Controls */}
+
               <div className={`p-4 border-t ${darkMode ? 'border-gray-700' : ''}`}>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className={`flex-1 ${darkMode ? 'border-gray-600 hover:bg-gray-800' : ''}`} onClick={duplicateSlide}>
@@ -1259,7 +1223,7 @@ export default function SlideEditorPage() {
             </div>
           )}
 
-          {/* Toggle Left Panel */}
+
           <button
             className={`w-6 border-r flex items-center justify-center ${darkMode
               ? 'bg-gray-900 border-gray-700 hover:bg-gray-800'
@@ -1270,7 +1234,7 @@ export default function SlideEditorPage() {
             {showLeftPanel ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </button>
 
-          {/* Canvas Area */}
+
           <div
             className={`flex-1 flex items-center justify-center overflow-auto p-8 ${darkMode
               ? 'bg-gray-950 city-lights'
@@ -1340,11 +1304,11 @@ export default function SlideEditorPage() {
                       contentEditable={editingTextId === element.id}
                       suppressContentEditableWarning
                       onMouseDown={(e) => {
-                        // Only stop propagation if we're in text editing mode
+
                         if (editingTextId === element.id) {
                           e.stopPropagation();
                         }
-                        // Otherwise let it bubble up to the parent drag handler
+
                       }}
                       onDoubleClick={(e) => {
                         e.stopPropagation();
@@ -1379,7 +1343,7 @@ export default function SlideEditorPage() {
                   )}
                   {element.type === "shape" && <div className="w-full h-full" style={{ backgroundColor: element.style.backgroundColor }} />}
 
-                  {/* Resize handles - only show when selected */}
+
                   {selectedElement === element.id && (
                     <ResizeHandles elementId={element.id} />
                   )}
@@ -1388,7 +1352,7 @@ export default function SlideEditorPage() {
             </div>
           </div>
 
-          {/* Toggle Right Panel */}
+
           <button
             className={`w-6 border-l flex items-center justify-center ${darkMode
               ? 'bg-gray-900 border-gray-700 hover:bg-gray-800'
@@ -1399,7 +1363,7 @@ export default function SlideEditorPage() {
             {showRightPanel ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </button>
 
-          {/* Right Sidebar - Properties */}
+
           {showRightPanel && (
             <div className={`w-72 border-l flex flex-col ${darkMode
               ? 'bg-gray-900/90 border-gray-700'
@@ -1412,7 +1376,7 @@ export default function SlideEditorPage() {
               <ScrollArea className="flex-1">
                 {selectedElementData ? (
                   <div className="p-4 space-y-4">
-                    {/* Position and Size - Auto-updating */}
+
                     <div>
                       <label className={`text-xs font-medium ${darkMode ? 'text-gray-400' : ''}`}>Position & Size</label>
                       <div className="grid grid-cols-2 gap-2 mt-1">
@@ -1457,7 +1421,7 @@ export default function SlideEditorPage() {
 
                     <Separator className={darkMode ? 'bg-gray-700' : ''} />
 
-                    {/* Text Properties */}
+
                     {selectedElementData.type === "text" && (
                       <>
                         <div>
@@ -1575,7 +1539,7 @@ export default function SlideEditorPage() {
                       </>
                     )}
 
-                    {/* Shape Properties */}
+
                     {selectedElementData.type === "shape" && (
                       <div>
                         <label className={`text-xs font-medium ${darkMode ? 'text-gray-400' : ''}`}>Background Color</label>
@@ -1627,7 +1591,7 @@ export default function SlideEditorPage() {
                           onChange={(e) => {
                             const newSlides = [...slides];
                             newSlides[currentSlideIndex].backgroundColor = e.target.value;
-                            // Clear background image if color is explicitly set
+
                             newSlides[currentSlideIndex].backgroundImage = undefined;
                             setSlides(newSlides);
                           }}
@@ -1639,7 +1603,7 @@ export default function SlideEditorPage() {
                           onChange={(e) => {
                             const newSlides = [...slides];
                             newSlides[currentSlideIndex].backgroundColor = e.target.value;
-                            // Clear background image if color is explicitly set
+
                             newSlides[currentSlideIndex].backgroundImage = undefined;
                             setSlides(newSlides);
                           }}
@@ -1672,7 +1636,7 @@ export default function SlideEditorPage() {
           )}
         </div>
 
-        {/* Pexels Dialog */}
+
         <Dialog open={isPexelsOpen} onOpenChange={setIsPexelsOpen}>
           <DialogContent className={`max-w-4xl max-h-[80vh] ${darkMode ? 'bg-gray-900 border-gray-700' : ''}`}>
             <DialogHeader>
@@ -1721,29 +1685,28 @@ export default function SlideEditorPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Templates Dialog */}
+
         <Dialog open={isTemplatesOpen} onOpenChange={setIsTemplatesOpen}>
-          <DialogContent className={`max-w-5xl max-h-[85vh] ${darkMode ? 'bg-gray-900 border-gray-700' : ''}`}>
+          <DialogContent className={`max-w-4xl max-h-[90vh] flex flex-col ${darkMode ? 'bg-gray-900 border-gray-700' : ''}`}>
             <DialogHeader>
               <DialogTitle className={darkMode ? 'text-white' : ''}>Templates</DialogTitle>
               <DialogDescription className={darkMode ? 'text-gray-400' : ''}>Choose a template to add to your presentation</DialogDescription>
             </DialogHeader>
 
-            {/* Search and Filter Bar */}
-            <div className="flex gap-3 items-center">
+            <div className="flex gap-3 items-center mt-2">
               <div className="relative flex-1">
                 <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`} />
                 <Input
                   placeholder="Search templates..."
                   value={templateSearch}
                   onChange={(e) => setTemplateSearch(e.target.value)}
-                  className={`pl-9 ${darkMode ? 'editor-input' : ''}`}
+                  className={`pl-9 ${darkMode ? 'editor-input border-gray-600' : ''}`}
                 />
               </div>
               <select
                 value={selectedGenre}
                 onChange={(e) => setSelectedGenre(e.target.value)}
-                className={`h-9 rounded-md border px-3 text-sm min-w-[160px] ${darkMode
+                className={`h-9 rounded-md border px-3 text-sm min-w-[160px] cursor-pointer outline-none focus:ring-1 focus:ring-primary ${darkMode
                   ? 'bg-gray-800 border-gray-600 text-white'
                   : 'bg-white border-input'
                   }`}
@@ -1754,9 +1717,8 @@ export default function SlideEditorPage() {
               </select>
             </div>
 
-            <ScrollArea className="h-[500px]">
+            <ScrollArea className="h-[60vh] min-h-[400px] mt-2 pr-4">
               {templatePreview ? (
-                /* Template Preview Mode */
                 <div className="space-y-4 p-1">
                   <Button variant="ghost" size="sm" onClick={() => setTemplatePreview(null)} className={darkMode ? 'text-gray-300 hover:bg-gray-800' : ''}>
                     <ChevronLeft className="h-4 w-4 mr-1" /> Back to templates
@@ -1765,56 +1727,67 @@ export default function SlideEditorPage() {
                     <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : ''}`}>{templatePreview.name}</h3>
                     <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>{templatePreview.description}</p>
                   </div>
-                  <div className="flex justify-center">
+                  <div className="flex justify-center w-full">
                     <div
+                      className="flex items-center justify-center bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden mb-2 relative"
                       style={{
-                        width: 960 * 0.55,
-                        height: 540 * 0.55,
+                        width: '100%',
+                        maxWidth: '800px',
+                        aspectRatio: '16/9',
                         backgroundColor: templatePreview.slides[0].backgroundColor,
-                        position: 'relative',
-                        overflow: 'hidden',
-                        borderRadius: 10,
                         border: darkMode ? '1px solid #374151' : '1px solid #e5e7eb',
                       }}
                     >
-                      {templatePreview.slides[0].elements.map((el) => (
-                        <div
-                          key={el.id}
-                          style={{
-                            position: 'absolute',
-                            left: el.x * 0.55,
-                            top: el.y * 0.55,
-                            width: el.width * 0.55,
-                            height: el.height * 0.55,
-                            backgroundColor: el.style.backgroundColor || 'transparent',
-                            borderRadius: el.style.borderRadius ? `calc(${el.style.borderRadius} * 0.55)` : undefined,
-                            clipPath: el.style.clipPath,
-                            overflow: 'hidden',
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            justifyContent: el.style.textAlign === 'center' ? 'center' : el.style.textAlign === 'right' ? 'flex-end' : 'flex-start',
-                          }}
-                        >
-                          {el.type === 'text' && (
-                            <span
-                              style={{
-                                fontSize: (el.style.fontSize || 16) * 0.55,
-                                color: el.style.color || '#000',
-                                fontFamily: el.style.fontFamily || 'Arial',
-                                fontWeight: el.style.fontWeight || 'normal',
-                                fontStyle: el.style.fontStyle || 'normal',
-                                textAlign: (el.style.textAlign as any) || 'left',
-                                width: '100%',
-                                lineHeight: 1.3,
-                                whiteSpace: 'pre-wrap',
-                                overflow: 'hidden',
-                              }}
-                            >
-                              {el.content}
-                            </span>
-                          )}
-                        </div>
-                      ))}
+                      <svg viewBox="0 0 960 540" style={{ width: '100%', height: '100%' }}>
+                        <foreignObject x="0" y="0" width="960" height="540">
+                          <div
+                            style={{
+                              width: 960,
+                              height: 540,
+                              position: 'relative',
+                            }}
+                          >
+                            {templatePreview.slides[0].elements.map((el) => (
+                              <div
+                                key={el.id}
+                                style={{
+                                  position: 'absolute',
+                                  left: el.x,
+                                  top: el.y,
+                                  width: el.width,
+                                  height: el.height,
+                                  backgroundColor: el.style.backgroundColor || 'transparent',
+                                  borderRadius: el.style.borderRadius,
+                                  clipPath: el.style.clipPath,
+                                  overflow: 'hidden',
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  justifyContent: el.style.textAlign === 'center' ? 'center' : el.style.textAlign === 'right' ? 'flex-end' : 'flex-start',
+                                }}
+                              >
+                                {el.type === 'text' && (
+                                  <span
+                                    style={{
+                                      fontSize: el.style.fontSize || 16,
+                                      color: el.style.color || '#000',
+                                      fontFamily: el.style.fontFamily || 'Arial',
+                                      fontWeight: el.style.fontWeight || 'normal',
+                                      fontStyle: el.style.fontStyle || 'normal',
+                                      textAlign: (el.style.textAlign as any) || 'left',
+                                      width: '100%',
+                                      lineHeight: 1.3,
+                                      whiteSpace: 'pre-wrap',
+                                      overflow: 'hidden',
+                                    }}
+                                  >
+                                    {el.content}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </foreignObject>
+                      </svg>
                     </div>
                   </div>
                   <div className="flex justify-center gap-3 pt-2">
@@ -1825,72 +1798,80 @@ export default function SlideEditorPage() {
                   </div>
                 </div>
               ) : filteredEditorTemplates.length === 0 ? (
-                <div className="flex items-center justify-center h-64 border-2 border-dashed rounded-lg">
+                <div className="flex items-center justify-center h-64 border-2 border-dashed rounded-lg mt-4 w-full">
                   <div className="text-center">
                     <LayoutTemplate className={`h-12 w-12 mx-auto mb-3 ${darkMode ? 'text-gray-600' : 'text-gray-300'}`} />
                     <p className={darkMode ? 'text-gray-400' : 'text-muted-foreground'}>No templates found. Try a different search or genre.</p>
                   </div>
                 </div>
               ) : (
-                /* Template Grid */
-                <div className="grid grid-cols-3 gap-3 p-1">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-1 mt-2">
                   {filteredEditorTemplates.map((template) => (
                     <div
                       key={template.id}
                       className={`cursor-pointer rounded-lg border p-2 transition-all hover:shadow-md ${darkMode ? 'border-gray-700 hover:border-blue-500 bg-gray-800' : 'border-gray-200 hover:border-blue-400 bg-white'}`}
                       onClick={() => setTemplatePreview(template)}
                     >
-                      {/* Mini Preview */}
+
                       <div
+                        className="flex items-center justify-center bg-gray-100 dark:bg-gray-900 rounded-md overflow-hidden mb-2"
                         style={{
                           width: '100%',
                           aspectRatio: '16/9',
                           backgroundColor: template.slides[0].backgroundColor,
                           position: 'relative',
-                          overflow: 'hidden',
-                          borderRadius: 6,
-                          marginBottom: 8,
                         }}
                       >
-                        {template.slides[0].elements.map((el) => {
-                          const scale = 0.22;
-                          return (
+                        <svg viewBox="0 0 960 540" style={{ width: '100%', height: '100%' }}>
+                          <foreignObject x="0" y="0" width="960" height="540">
                             <div
-                              key={el.id}
                               style={{
-                                position: 'absolute',
-                                left: el.x * scale,
-                                top: el.y * scale,
-                                width: el.width * scale,
-                                height: el.height * scale,
-                                backgroundColor: el.style.backgroundColor || 'transparent',
-                                borderRadius: el.style.borderRadius ? `calc(${el.style.borderRadius} * ${scale})` : undefined,
-                                clipPath: el.style.clipPath,
-                                overflow: 'hidden',
+                                width: 960,
+                                height: 540,
+                                position: 'relative',
                               }}
                             >
-                              {el.type === 'text' && (
-                                <span
-                                  style={{
-                                    fontSize: (el.style.fontSize || 16) * scale,
-                                    color: el.style.color || '#000',
-                                    fontFamily: el.style.fontFamily || 'Arial',
-                                    fontWeight: el.style.fontWeight || 'normal',
-                                    fontStyle: el.style.fontStyle || 'normal',
-                                    textAlign: (el.style.textAlign as any) || 'left',
-                                    width: '100%',
-                                    lineHeight: 1.3,
-                                    whiteSpace: 'pre-wrap',
-                                    overflow: 'hidden',
-                                    display: 'block',
-                                  }}
-                                >
-                                  {el.content}
-                                </span>
-                              )}
+                              {template.slides[0].elements.map((el) => {
+                                return (
+                                  <div
+                                    key={el.id}
+                                    style={{
+                                      position: 'absolute',
+                                      left: el.x,
+                                      top: el.y,
+                                      width: el.width,
+                                      height: el.height,
+                                      backgroundColor: el.style.backgroundColor || 'transparent',
+                                      borderRadius: el.style.borderRadius,
+                                      clipPath: el.style.clipPath,
+                                      overflow: 'hidden',
+                                    }}
+                                  >
+                                    {el.type === 'text' && (
+                                      <span
+                                        style={{
+                                          fontSize: el.style.fontSize || 16,
+                                          color: el.style.color || '#000',
+                                          fontFamily: el.style.fontFamily || 'Arial',
+                                          fontWeight: el.style.fontWeight || 'normal',
+                                          fontStyle: el.style.fontStyle || 'normal',
+                                          textAlign: (el.style.textAlign as any) || 'left',
+                                          width: '100%',
+                                          lineHeight: 1.3,
+                                          whiteSpace: 'pre-wrap',
+                                          overflow: 'hidden',
+                                          display: 'block',
+                                        }}
+                                      >
+                                        {el.content}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
-                          );
-                        })}
+                          </foreignObject>
+                        </svg>
                       </div>
                       <p className={`text-xs font-semibold truncate ${darkMode ? 'text-white' : ''}`}>{template.name}</p>
                       <p className={`text-[10px] truncate ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>{template.genre}</p>

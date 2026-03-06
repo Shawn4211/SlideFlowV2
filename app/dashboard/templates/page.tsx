@@ -17,7 +17,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, LayoutTemplate, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { SLIDE_TEMPLATES, TEMPLATE_GENRES, SlideTemplate } from "@/lib/template-data";
 
-// Mini slide preview component — renders template elements at small scale
 function SlidePreview({ template, size = "small" }: { template: SlideTemplate; size?: "small" | "large" }) {
     const slide = template.slides[0];
     const scale = size === "small" ? 0.28 : 0.55;
@@ -85,7 +84,6 @@ function SlidePreview({ template, size = "small" }: { template: SlideTemplate; s
     );
 }
 
-// Genre color mapping
 const genreColors: Record<string, string> = {
     Announcements: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
     Corporate: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30",
@@ -103,7 +101,6 @@ export default function TemplatesPage() {
     const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
     const [isImporting, setIsImporting] = useState(false);
 
-    // Filter templates
     const filteredTemplates = useMemo(() => {
         return SLIDE_TEMPLATES.filter((t) => {
             const matchesGenre = selectedGenre === "All" || t.genre === selectedGenre;
@@ -120,11 +117,9 @@ export default function TemplatesPage() {
         });
     }, [searchQuery, selectedGenre]);
 
-    // Import template — create a new show and redirect to editor
     const handleUseTemplate = async (template: SlideTemplate) => {
         setIsImporting(true);
         try {
-            // Deep clone slides with fresh IDs
             const clonedSlides = JSON.parse(JSON.stringify(template.slides)).map((slide: any, i: number) => ({
                 ...slide,
                 id: Math.random().toString(36).substr(2, 9),
@@ -158,7 +153,7 @@ export default function TemplatesPage() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
+            
             <div>
                 <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
                     <LayoutTemplate className="h-8 w-8" />
@@ -169,7 +164,7 @@ export default function TemplatesPage() {
                 </p>
             </div>
 
-            {/* Search Bar */}
+            
             <div className="relative max-w-lg">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -181,7 +176,7 @@ export default function TemplatesPage() {
                 />
             </div>
 
-            {/* Genre Filter Pills */}
+            
             <div className="flex flex-wrap gap-2">
                 {TEMPLATE_GENRES.map((genre) => (
                     <Button
@@ -197,14 +192,14 @@ export default function TemplatesPage() {
                 ))}
             </div>
 
-            {/* Results Count */}
+            
             <p className="text-sm text-muted-foreground">
                 {filteredTemplates.length} template{filteredTemplates.length !== 1 ? "s" : ""} found
                 {selectedGenre !== "All" && ` in ${selectedGenre}`}
                 {searchQuery && ` matching "${searchQuery}"`}
             </p>
 
-            {/* Template Grid */}
+            
             {filteredTemplates.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
                     <LayoutTemplate className="h-12 w-12 text-muted-foreground/50 mb-4" />
@@ -224,12 +219,12 @@ export default function TemplatesPage() {
                             }}
                         >
                             <CardContent className="p-3">
-                                {/* Live Preview */}
+                                
                                 <div className="flex justify-center mb-3 bg-muted/30 rounded-lg p-2">
                                     <SlidePreview template={template} size="small" />
                                 </div>
 
-                                {/* Template Info */}
+                                
                                 <div className="space-y-1.5">
                                     <h3 className="font-semibold text-sm leading-tight group-hover:text-primary transition-colors">
                                         {template.name}
@@ -247,7 +242,7 @@ export default function TemplatesPage() {
                 </div>
             )}
 
-            {/* Preview Dialog */}
+            
             <Dialog open={!!previewTemplate} onOpenChange={(open) => !open && setPreviewTemplate(null)}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
@@ -266,7 +261,7 @@ export default function TemplatesPage() {
 
                     {previewTemplate && (
                         <div className="space-y-4">
-                            {/* Large Preview */}
+                            
                             <div className="flex justify-center bg-muted/30 rounded-lg p-4">
                                 <SlidePreview template={{
                                     ...previewTemplate,
@@ -274,7 +269,7 @@ export default function TemplatesPage() {
                                 }} size="large" />
                             </div>
 
-                            {/* Slide navigation (if multi-slide template) */}
+                            
                             {previewTemplate.slides.length > 1 && (
                                 <div className="flex items-center justify-center gap-3">
                                     <Button
@@ -301,7 +296,7 @@ export default function TemplatesPage() {
                                 </div>
                             )}
 
-                            {/* Template details */}
+                            
                             <div className="text-sm text-muted-foreground">
                                 <span>{previewTemplate.slides.length} slide{previewTemplate.slides.length !== 1 ? "s" : ""}</span>
                                 <span className="mx-2">·</span>
@@ -310,7 +305,7 @@ export default function TemplatesPage() {
                                 <span>Tags: {previewTemplate.tags.slice(0, 5).join(", ")}</span>
                             </div>
 
-                            {/* Action buttons */}
+                            
                             <div className="flex gap-3 pt-2">
                                 <Button
                                     id="use-template-btn"

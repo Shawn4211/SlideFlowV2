@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
-// Get all folders
 export async function GET() {
   try {
     const { data, error } = await supabase
@@ -27,7 +26,6 @@ export async function GET() {
   }
 }
 
-// Create a new folder
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -67,7 +65,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Update folder (rename)
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
@@ -105,7 +102,6 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// Delete folder
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -118,7 +114,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Check if folder has content
     const { count, error: countError } = await supabase
       .from("content")
       .select("*", { count: "exact", head: true })

@@ -83,7 +83,7 @@ export default async function PlaylistsPage() {
                   </div>
                 </div>
 
-                {/* Items Preview */}
+                
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {playlist.items.map((item, index) => (
                     <div
@@ -112,7 +112,7 @@ export default async function PlaylistsPage() {
           </Card>
         ))}
 
-        {/* Create New Playlist Card */}
+        
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <div className="rounded-full bg-primary/10 p-4 mb-4">

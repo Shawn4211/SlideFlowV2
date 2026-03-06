@@ -4,7 +4,6 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// POST /api/auth/login — Authenticate with username and password
 export async function POST(request: NextRequest) {
     let body;
     try {
@@ -18,7 +17,6 @@ export async function POST(request: NextRequest) {
 
     const { username, password } = body;
 
-    // Validate input
     if (!username || !password) {
         return NextResponse.json(
             { error: "Username and password are required" },
@@ -26,7 +24,6 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    // Admin user accounts
     const adminAccounts: Record<string, string> = {
         "Admin": "admin@slideflow.app",
         "Admin2": "admin2@slideflow.app",
@@ -45,7 +42,6 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-        // Authenticate via Supabase Auth
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
         const { data, error } = await supabase.auth.signInWithPassword({
             email,

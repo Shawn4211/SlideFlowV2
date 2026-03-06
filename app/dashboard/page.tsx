@@ -147,7 +147,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Stats Grid */}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -191,9 +191,9 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Active Display & Recent Shows */}
+
       <div className="grid gap-4 md:grid-cols-2">
-        {/* Active Display */}
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -204,16 +204,16 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {/* Currently Playing */}
+
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Now Playing</p>
                 {isLoading ? (
                   <p className="text-sm text-muted-foreground">Loading...</p>
                 ) : manualPresent ? (
-                  <div className="flex items-center justify-between p-3 border rounded-lg bg-blue-50 border-blue-200">
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded bg-blue-100 flex items-center justify-center">
-                        <Presentation className="h-5 w-5 text-blue-600" />
+                      <div className="h-10 w-10 rounded bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                        <Presentation className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div>
                         <p className="text-sm font-medium">{manualPresent.show_name || "Manual Present"}</p>
@@ -223,11 +223,11 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="default" className="bg-blue-600">Presenting</Badge>
+                      <Badge variant="default" className="bg-blue-600 dark:bg-blue-500">Presenting</Badge>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
                         onClick={handleStopPresent}
                         disabled={isStopping}
                         title="Stop Present"
@@ -237,10 +237,10 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ) : currentShow ? (
-                  <div className="flex items-center justify-between p-3 border rounded-lg bg-green-50 border-green-200">
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded bg-green-100 flex items-center justify-center">
-                        <Presentation className="h-5 w-5 text-green-600" />
+                      <div className="h-10 w-10 rounded bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+                        <Presentation className="h-5 w-5 text-green-600 dark:text-green-400" />
                       </div>
                       <div>
                         <p className="text-sm font-medium">{currentShow.name || "Untitled"}</p>
@@ -251,16 +251,16 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="default" className="bg-green-600">Live</Badge>
+                      <Badge variant="default" className="bg-green-600 dark:bg-green-500">Live</Badge>
                       <Link href={`/editor/${currentShow.id}`}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 dark:hover:bg-gray-800">
                           <Edit className="h-4 w-4" />
                         </Button>
                       </Link>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
                         onClick={() => handleStopShow(currentShow.id)}
                         disabled={isStoppingShow}
                         title="Stop Show"
@@ -276,7 +276,7 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Up Next */}
+
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Up Next</p>
                 {isLoading ? (
@@ -284,9 +284,9 @@ export default function DashboardPage() {
                 ) : upcomingShows.length > 0 ? (
                   <div className="space-y-2">
                     {upcomingShows.map((show) => (
-                      <div key={show.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div key={show.id} className="flex items-center justify-between p-3 border rounded-lg dark:border-gray-800">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center">
+                          <div className="h-10 w-10 rounded bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
                             <Clock className="h-5 w-5 text-primary" />
                           </div>
                           <div>
@@ -299,14 +299,14 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2">
                           <Badge variant="outline">Scheduled</Badge>
                           <Link href={`/editor/${show.id}`}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 dark:hover:bg-gray-800">
                               <Edit className="h-4 w-4" />
                             </Button>
                           </Link>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                            className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
                             onClick={() => handleStopShow(show.id)}
                             disabled={isStoppingShow}
                             title="Cancel Schedule"
@@ -334,7 +334,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
+
         <Card>
           <CardHeader>
             <CardTitle>Recent Shows</CardTitle>

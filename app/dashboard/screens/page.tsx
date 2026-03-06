@@ -34,14 +34,13 @@ interface Show {
   updated_at: string;
 }
 
-// Dark mode colors - Light Gray Theme
-const DARK_BG = "#4a5568"; // Lighter gray background
-const DARK_BG_LIGHTER = "#5a6578"; // Even lighter for panels
-const DARK_BG_DARKER = "#3a4558"; // Darker for inputs
-const DARK_BORDER = "#6a7588"; // Light border for visibility
-const DARK_TEXT = "#ffffff"; // Pure white for maximum visibility
-const DARK_TEXT_MUTED = "#d1d5db"; // Light gray for secondary text
-const ACCENT_COLOR = "#60a5fa"; // Brighter blue accent
+const DARK_BG = "#4a5568";
+const DARK_BG_LIGHTER = "#5a6578";
+const DARK_BG_DARKER = "#3a4558";
+const DARK_BORDER = "#6a7588";
+const DARK_TEXT = "#ffffff";
+const DARK_TEXT_MUTED = "#d1d5db";
+const ACCENT_COLOR = "#60a5fa";
 
 export default function ScreensPage() {
   const router = useRouter();
@@ -53,7 +52,6 @@ export default function ScreensPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
 
-  // Load dark mode preference
   useEffect(() => {
     const savedDarkMode = localStorage.getItem("slideflow_darkmode");
     if (savedDarkMode) {
@@ -61,12 +59,10 @@ export default function ScreensPage() {
     }
   }, []);
 
-  // Save dark mode preference
   useEffect(() => {
     localStorage.setItem("slideflow_darkmode", JSON.stringify(darkMode));
   }, [darkMode]);
 
-  // Load shows from database
   const fetchShows = async () => {
     try {
       const response = await fetch("/api/shows");
@@ -88,21 +84,17 @@ export default function ScreensPage() {
   const handleAddSlide = () => {
     if (!newSlideName.trim()) return;
 
-    // Generate a temporary unique ID for the editor route
     const tempId = Math.random().toString(36).substr(2, 9);
 
-    // Store the desired name so the editor can pick it up
     localStorage.setItem("slideflow_new_show_name", newSlideName);
 
     setNewSlideName("");
     setIsDialogOpen(false);
 
-    // Navigate to editor with the temp ID (non-numeric, so editor treats it as new)
     router.push(`/editor/${tempId}`);
   };
 
   const handleEditSlide = (show: Show) => {
-    // Navigate to editor using the show's database ID
     router.push(`/editor/${show.id}`);
   };
 
@@ -118,7 +110,7 @@ export default function ScreensPage() {
         }),
       });
       if (response.ok) {
-        fetchShows(); // Refresh the list
+        fetchShows();
       }
     } catch (error) {
       console.error("Error duplicating show:", error);
@@ -144,12 +136,10 @@ export default function ScreensPage() {
     let showId: number | undefined;
 
     if (show) {
-      // Present a specific show
       slidesData = show.slides_data || [];
       showName = show.name || "Untitled";
       showId = show.id;
     } else {
-      // Present all shows combined
       slidesData = shows.flatMap((s) => (Array.isArray(s.slides_data) ? s.slides_data : []));
       showName = "All Projects";
     }
@@ -191,7 +181,6 @@ export default function ScreensPage() {
     return show.slides_data.reduce((acc: number, slide: any) => acc + (slide.duration || 10), 0);
   };
 
-  // Get the first slide's data for preview
   const getPreviewSlide = (show: Show) => {
     if (Array.isArray(show.slides_data) && show.slides_data.length > 0) {
       return show.slides_data[0];
@@ -201,7 +190,7 @@ export default function ScreensPage() {
 
   return (
     <div className={darkMode ? 'dark' : ''}>
-      {/* Dark Mode Theme Styles */}
+      
       <style jsx global>{`
         .dark {
           background-color: ${DARK_BG} !important;
@@ -346,14 +335,14 @@ export default function ScreensPage() {
           </div>
         </div>
 
-        {/* Loading State */}
+        
         {isLoading && (
           <div className="flex items-center justify-center py-12">
             <p className={darkMode ? 'text-gray-400' : 'text-muted-foreground'}>Loading shows...</p>
           </div>
         )}
 
-        {/* Shows Grid */}
+        
         {!isLoading && (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {shows.map((show, index) => {
@@ -369,7 +358,7 @@ export default function ScreensPage() {
                       style={{ backgroundColor: previewSlide?.backgroundColor || (darkMode ? '#0a0a0a' : '#ffffff') }}
                       onClick={() => handleEditSlide(show)}
                     >
-                      {/* Render first slide elements as preview */}
+                      
                       {previewSlide && (
                         <div className="absolute inset-0 overflow-hidden">
                           {(previewSlide.elements || []).map((element: any) => (
@@ -418,7 +407,7 @@ export default function ScreensPage() {
                         </div>
                       )}
 
-                      {/* Hover Overlay */}
+                      
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                         <Button
                           size="sm"
@@ -443,7 +432,7 @@ export default function ScreensPage() {
                         </Button>
                       </div>
 
-                      {/* Slide Count Badge */}
+                      
                       <div className="absolute top-2 left-2">
                         <Badge variant="secondary" className={darkMode ? 'bg-gray-800 text-white' : ''}>
                           {slideCount} {slideCount === 1 ? 'slide' : 'slides'}
@@ -492,7 +481,7 @@ export default function ScreensPage() {
               );
             })}
 
-            {/* Add New Slide Card */}
+            
             <Card
               className={`border-dashed cursor-pointer hover:bg-accent transition-colors ${darkMode ? 'bg-gray-900/50 border-gray-700 hover:bg-gray-800' : ''
                 }`}
@@ -511,7 +500,7 @@ export default function ScreensPage() {
           </div>
         )}
 
-        {/* Presentation Info */}
+        
         <Card className={`${darkMode ? 'bg-gray-900/80 border-gray-700' : 'bg-muted/50'}`}>
           <CardHeader>
             <CardTitle className={`text-lg ${darkMode ? 'text-white' : ''}`}>Presentation Info</CardTitle>

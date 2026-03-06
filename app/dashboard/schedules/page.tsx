@@ -79,7 +79,6 @@ export default function SchedulesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingShowId, setEditingShowId] = useState<number | null>(null);
 
-  // Create/edit form state
   const [formName, setFormName] = useState("");
   const [formContentId, setFormContentId] = useState("");
   const [formExistingShowId, setFormExistingShowId] = useState("");
@@ -133,14 +132,12 @@ export default function SchedulesPage() {
     setIsCreateOpen(true);
   };
 
-  // Convert a UTC/ISO timestamp to a local datetime-local string (YYYY-MM-DDTHH:MM)
   const toLocalDatetimeString = (iso: string) => {
     const d = new Date(iso);
     const pad = (n: number) => n.toString().padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
-  // Convert a local datetime-local string to a proper ISO string preserving the local time's UTC equivalent
   const toISOFromLocal = (localStr: string) => {
     return new Date(localStr).toISOString();
   };
@@ -157,11 +154,9 @@ export default function SchedulesPage() {
   const handleSave = async () => {
     if (!formStart || !formFinish) return;
 
-    // Convert local datetime-local values to proper ISO strings
     const isoStart = toISOFromLocal(formStart);
     const isoFinish = toISOFromLocal(formFinish);
 
-    // If scheduling an existing show, update it with the schedule times
     if (formExistingShowId) {
       try {
         const res = await fetch("/api/shows", {
@@ -216,7 +211,6 @@ export default function SchedulesPage() {
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to remove this project from the schedule?")) return;
     try {
-      // Clear the schedule instead of deleting the entire project
       await fetch("/api/shows", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -243,7 +237,7 @@ export default function SchedulesPage() {
         </Button>
       </div>
 
-      {/* Create/Edit Schedule Dialog */}
+      
       {isCreateOpen && (
         <Card className="border-2 border-primary/20">
           <CardHeader className="pb-3">
@@ -348,14 +342,14 @@ export default function SchedulesPage() {
       )
       }
 
-      {/* Loading State */}
+      
       {
         loading && (
           <div className="text-center py-12 text-muted-foreground">Loading schedules...</div>
         )
       }
 
-      {/* Schedule Cards */}
+      
       {
         !loading && shows.length > 0 && (
           <div className="grid gap-4">
@@ -417,7 +411,7 @@ export default function SchedulesPage() {
         )
       }
 
-      {/* Empty State */}
+      
       {
         !loading && shows.length === 0 && !isCreateOpen && (
           <Card className="border-dashed">

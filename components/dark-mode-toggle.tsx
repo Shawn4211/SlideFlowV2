@@ -8,7 +8,6 @@ export function DarkModeToggle() {
   const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
-    // Load dark mode preference from localStorage
     const savedDarkMode = localStorage.getItem("slideflow_darkmode");
     if (savedDarkMode) {
       const isDark = JSON.parse(savedDarkMode);

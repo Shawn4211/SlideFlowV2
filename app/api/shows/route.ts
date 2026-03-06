@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
-// Get shows (optionally filter by scheduled or content_id)
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
@@ -9,7 +8,6 @@ export async function GET(request: NextRequest) {
         const scheduled = searchParams.get("scheduled");
         const showId = searchParams.get("id");
 
-        // Get a specific show by ID
         if (showId) {
             const { data, error } = await supabase
                 .from("show")
@@ -21,7 +19,6 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ show: data });
         }
 
-        // Get show by content_id (for editor loading)
         if (contentId) {
             const { data, error } = await supabase
                 .from("show")
@@ -35,7 +32,6 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ show: data });
         }
 
-        // List all shows, optionally only scheduled ones
         let query = supabase
             .from("show")
             .select("*, content(*)")
@@ -59,13 +55,11 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// Create or update a show
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const { id, contentId, name, slidesData, startTime, finishTime, deviceId, locationId, clientId } = body;
 
-        // Check if the content_id actually exists in the database to prevent foreign key errors
         let validContentId = null;
         if (contentId && !isNaN(parseInt(contentId, 10))) {
             const parsedId = parseInt(contentId, 10);
@@ -81,7 +75,6 @@ export async function POST(request: NextRequest) {
         }
 
         if (id) {
-            // Update existing show
             const updateData: any = { updated_at: new Date().toISOString() };
             if (name !== undefined) updateData.name = name;
             if (slidesData !== undefined) updateData.slides_data = slidesData;
@@ -106,7 +99,6 @@ export async function POST(request: NextRequest) {
 
             return NextResponse.json({ success: true, show: data });
         } else {
-            // Create new show
             const insertData: any = {
                 name: name || "Untitled",
                 slides_data: slidesData || [],
@@ -138,7 +130,6 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// Delete a show
 export async function DELETE(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);

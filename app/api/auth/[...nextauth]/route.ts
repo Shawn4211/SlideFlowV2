@@ -17,7 +17,6 @@ export const authOptions = {
           return null;
         }
 
-        // Admin user accounts
         const adminAccounts: Record<string, { password: string; id: string; name: string }> = {
           "Admin": { password: "Password1", id: "1", name: "Admin User" },
           "Admin2": { password: "Password2", id: "2", name: "Admin User 2" },

@@ -18,7 +18,7 @@ export default function CredentialsPage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Password state
+
   const [passwords, setPasswords] = useState({ current: "", new_pw: "", confirm: "" });
   const [passwordMessage, setPasswordMessage] = useState("");
   const [updatingPassword, setUpdatingPassword] = useState(false);
@@ -29,7 +29,7 @@ export default function CredentialsPage() {
       if (!user) return;
       setUser({ email: user.email || "", id: user.id });
 
-      // Fetch profile from credentials table
+
       const { data } = await supabase
         .from("credentials")
         .select("first_name, last_name, username")
@@ -50,19 +50,19 @@ export default function CredentialsPage() {
         });
       }
 
-      // Load avatar
+
       const { data: avatarData } = supabase.storage
         .from("avatars")
         .getPublicUrl(`${user.id}/avatar`);
 
-      // Check if avatar exists by trying to fetch it
+
       try {
         const res = await fetch(avatarData.publicUrl, { method: "HEAD" });
         if (res.ok) {
           setAvatarUrl(avatarData.publicUrl + "?t=" + Date.now());
         }
       } catch {
-        // No avatar uploaded yet
+
       }
     }
     loadUser();
@@ -76,13 +76,13 @@ export default function CredentialsPage() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    // Validate file type
+
     if (!file.type.startsWith("image/")) {
       setMessage("Please select an image file.");
       return;
     }
 
-    // Validate file size (max 2MB)
+
     if (file.size > 2 * 1024 * 1024) {
       setMessage("Image must be under 2MB.");
       return;

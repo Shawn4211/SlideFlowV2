@@ -11,7 +11,6 @@ import {
   Organization
 } from "@/lib/types";
 
-// Mock current user
 export const mockUser: User = {
   id: "1",
   email: "admin@slideflow.com",
@@ -33,7 +32,6 @@ export const mockTeam: Team = {
   organizationId: "1",
 };
 
-// Mock screens data
 export const mockScreens: Screen[] = [
   {
     id: "1",
@@ -90,7 +88,6 @@ export const mockScreens: Screen[] = [
   },
 ];
 
-// Mock folders data
 export const mockFolders: Folder[] = [
   { id: "1", teamId: "1", name: "Images", securityLevel: "inherit", allowedRoles: [], createdAt: new Date() },
   { id: "2", teamId: "1", name: "Videos", securityLevel: "inherit", allowedRoles: [], createdAt: new Date() },
@@ -98,7 +95,6 @@ export const mockFolders: Folder[] = [
   { id: "4", teamId: "1", parentId: "1", name: "Logos", securityLevel: "inherit", allowedRoles: [], createdAt: new Date() },
 ];
 
-// Mock assets data
 export const mockAssets: Asset[] = [
   {
     id: "1",
@@ -152,7 +148,6 @@ export const mockAssets: Asset[] = [
   },
 ];
 
-// Mock playlists data
 export const mockPlaylists: Playlist[] = [
   {
     id: "1",
@@ -217,7 +212,6 @@ export const mockPlaylists: Playlist[] = [
   },
 ];
 
-// Mock schedules data
 export const mockSchedules: Schedule[] = [
   {
     id: "1",
@@ -243,7 +237,6 @@ export const mockSchedules: Schedule[] = [
   },
 ];
 
-// Mock templates data
 export const mockTemplates: Template[] = [
   {
     id: "1",
@@ -295,7 +288,6 @@ export const mockTemplates: Template[] = [
   },
 ];
 
-// Mock apps data
 export const mockApps: App[] = [
   {
     id: "1",
@@ -350,7 +342,6 @@ export const mockApps: App[] = [
   },
 ];
 
-// Data access functions
 export async function getScreens(): Promise<Screen[]> {
   return mockScreens;
 }
