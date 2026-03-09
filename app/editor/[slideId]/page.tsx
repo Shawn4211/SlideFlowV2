@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-// import { Card } from "@/components/ui/card";
+import { toast } from "sonner";
+
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
@@ -51,8 +52,8 @@ import {
   Maximize2,
 } from "lucide-react";
 import Link from "next/link";
+import { SLIDE_TEMPLATES, TEMPLATE_GENRES, SlideTemplate } from "@/lib/template-data";
 
-// Types
 interface SlideElement {
   id: string;
   type: "text" | "image" | "shape" | "video";
@@ -92,10 +93,8 @@ interface HistoryState {
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | null;
 
-// Pexels API
 const PEXELS_API_KEY = "L6w1BIl04BhqryxVmqQUz4OuVe0Ve4dIYBkQqpfYT2Dv0IXDiTxaxMMD";
 
-// Font options
 const FONTS = [
   "Arial",
   "Helvetica",
@@ -109,7 +108,6 @@ const FONTS = [
   "Palatino",
 ];
 
-// Dark mode colors - Light Gray Theme
 const DARK_BG = "#4a5568"; // Lighter gray background
 const DARK_BG_LIGHTER = "#5a6578"; // Even lighter for panels
 const DARK_BG_DARKER = "#3a4558"; // Darker for inputs
@@ -138,6 +136,7 @@ export default function SlideEditorPage() {
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const [scheduleStart, setScheduleStart] = useState("");
   const [scheduleFinish, setScheduleFinish] = useState("");
+  const [scheduleError, setScheduleError] = useState("");
   const [zoom, setZoom] = useState(100);
   const [slides, setSlides] = useState<Slide[]>([
     {
@@ -154,60 +153,83 @@ export default function SlideEditorPage() {
   const [darkMode, setDarkMode] = useState(false);
   const [showShapesMenu, setShowShapesMenu] = useState(false);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-  // History for undo/redo
   const [history, setHistory] = useState<HistoryState[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
-  // Pexels search
   const [isPexelsOpen, setIsPexelsOpen] = useState(false);
   const [pexelsSearch, setPexelsSearch] = useState("");
   const [pexelsImages, setPexelsImages] = useState<any[]>([]);
   const [isPexelsLoading, setIsPexelsLoading] = useState(false);
 
-  // Templates
-  // Templates (Placeholder for API integration)
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
-  // const [templates, setTemplates] = useState<any[]>([]);
-  // const [isTemplatesLoading, setIsTemplatesLoading] = useState(false);
-  // const [templateGenres, setTemplateGenres] = useState<string[]>([]);
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [templateSearch, setTemplateSearch] = useState("");
+  const [templatePreview, setTemplatePreview] = useState<SlideTemplate | null>(null);
 
   const currentSlide = slides[currentSlideIndex];
 
-  // Load content from Supabase when editing existing content
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        router.replace("/auth/login");
+      } else {
+        setIsAuthChecking(false);
+      }
+    });
+  }, [router]);
+
   useEffect(() => {
     const loadContent = async () => {
       const contentId = params.slideId as string;
 
-      // Only attempt to load from DB if slideId is a valid numeric content ID
       const isNumericId = contentId && !isNaN(parseInt(contentId, 10));
 
       if (!isNumericId) {
+
+        const storedName = localStorage.getItem("slideflow_new_show_name");
+        if (storedName) {
+          setSlideName(storedName);
+          localStorage.removeItem("slideflow_new_show_name");
+        }
         setIsLoadingContent(false);
         return;
       }
 
       try {
-        // First, check if we have saved show data for this content
-        const showRes = await fetch(`/api/shows?contentId=${contentId}`);
-        const showJson = await showRes.json();
+
+
+        let showJson: any = { show: null };
+
+        const showByIdRes = await fetch(`/api/shows?id=${contentId}`);
+        showJson = await showByIdRes.json();
+
+        if (!showJson.show) {
+          const showByContentRes = await fetch(`/api/shows?contentId=${contentId}`);
+          showJson = await showByContentRes.json();
+        }
 
         if (showJson.show) {
-          // Load saved show data
+
           setSavedShowId(showJson.show.id);
           setSlideName(showJson.show.name || "Untitled Slide");
           if (showJson.show.slides_data && showJson.show.slides_data.length > 0) {
             setSlides(showJson.show.slides_data);
           }
-          if (showJson.show.start_time) setScheduleStart(showJson.show.start_time.slice(0, 16));
-          if (showJson.show.finish_time) setScheduleFinish(showJson.show.finish_time.slice(0, 16));
+
+          const toLocalDatetimeString = (iso: string) => {
+            const d = new Date(iso);
+            const pad = (n: number) => n.toString().padStart(2, "0");
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+          };
+
+          if (showJson.show.start_time) setScheduleStart(toLocalDatetimeString(showJson.show.start_time));
+          if (showJson.show.finish_time) setScheduleFinish(toLocalDatetimeString(showJson.show.finish_time));
           setIsLoadingContent(false);
           return;
         }
 
-        // No saved slide data - load from content table
         const { data, error } = await supabase
           .from("content")
           .select("*")
@@ -215,15 +237,13 @@ export default function SlideEditorPage() {
           .single();
 
         if (error || !data) {
-          console.log("No content found for ID, starting with blank canvas");
+          // Starting with a blank canvas
           setIsLoadingContent(false);
           return;
         }
 
-        // Set the slide name from the content
         setSlideName(data.name || "Untitled Slide");
 
-        // Create an element based on the content type
         if (data.file_url && (data.type === "image" || data.type === "video")) {
           const contentElement: SlideElement = {
             id: Math.random().toString(36).substr(2, 9),
@@ -244,7 +264,7 @@ export default function SlideEditorPage() {
             duration: data.duration || 10,
           }]);
         } else {
-          // For documents or other types, show the name as text
+
           const textElement: SlideElement = {
             id: Math.random().toString(36).substr(2, 9),
             type: "text",
@@ -282,7 +302,6 @@ export default function SlideEditorPage() {
     loadContent();
   }, [params.slideId]);
 
-  // Load dark mode preference
   useEffect(() => {
     const savedDarkMode = localStorage.getItem("slideflow_darkmode");
     if (savedDarkMode) {
@@ -290,12 +309,10 @@ export default function SlideEditorPage() {
     }
   }, []);
 
-  // Save dark mode preference
   useEffect(() => {
     localStorage.setItem("slideflow_darkmode", JSON.stringify(darkMode));
   }, [darkMode]);
 
-  // Save to history
   const saveToHistory = useCallback((newSlides: Slide[], newIndex: number) => {
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push({ slides: JSON.parse(JSON.stringify(newSlides)), currentSlideIndex: newIndex });
@@ -303,7 +320,6 @@ export default function SlideEditorPage() {
     setHistoryIndex(newHistory.length - 1);
   }, [history, historyIndex]);
 
-  // Undo
   const undo = () => {
     if (historyIndex > 0) {
       const prevState = history[historyIndex - 1];
@@ -313,7 +329,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Redo
   const redo = () => {
     if (historyIndex < history.length - 1) {
       const nextState = history[historyIndex + 1];
@@ -323,14 +338,12 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Initialize history
   useEffect(() => {
     if (history.length === 0) {
       saveToHistory(slides, currentSlideIndex);
     }
   }, []);
 
-  // Add text
   const addText = () => {
     const newElement: SlideElement = {
       id: Math.random().toString(36).substr(2, 9),
@@ -357,7 +370,6 @@ export default function SlideEditorPage() {
     setSelectedElement(newElement.id);
   };
 
-  // Add shape
   const addShape = (shapeType: string) => {
     let style: any = {
       backgroundColor: shapeType === "circle" ? "#EF4444" : shapeType === "triangle" ? "#F59E0B" : "#3B82F6",
@@ -385,7 +397,6 @@ export default function SlideEditorPage() {
     setSelectedElement(newElement.id);
   };
 
-  // Add image
   const addImage = (src: string) => {
     const newElement: SlideElement = {
       id: Math.random().toString(36).substr(2, 9),
@@ -404,7 +415,6 @@ export default function SlideEditorPage() {
     setSelectedElement(newElement.id);
   };
 
-  // Search Pexels
   const searchPexels = async (query: string = pexelsSearch) => {
     const searchTerm = query.trim() || "nature";
     setIsPexelsLoading(true);
@@ -425,15 +435,30 @@ export default function SlideEditorPage() {
     setIsPexelsLoading(false);
   };
 
-  // Load templates (Placeholder)
-  const loadTemplates = async (genre?: string, search?: string) => {
-    console.log("Template API integration pending...");
-    // setIsTemplatesLoading(true);
-    // ... implementation removed ...
-    // setIsTemplatesLoading(false);
+  const filteredEditorTemplates = SLIDE_TEMPLATES.filter((t) => {
+    const matchesGenre = selectedGenre === "All" || t.genre === selectedGenre;
+    if (!matchesGenre) return false;
+    if (!templateSearch.trim()) return true;
+    const q = templateSearch.toLowerCase();
+    return t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q) || t.tags.some((tag) => tag.toLowerCase().includes(q));
+  });
+
+  const importTemplate = (template: SlideTemplate) => {
+    const clonedSlides = JSON.parse(JSON.stringify(template.slides)).map((slide: any, i: number) => ({
+      ...slide,
+      id: Math.random().toString(36).substr(2, 9),
+      name: `Slide ${slides.length + i + 1}`,
+      elements: slide.elements.map((el: any) => ({ ...el, id: Math.random().toString(36).substr(2, 9) })),
+    }));
+    const newSlides = [...slides, ...clonedSlides];
+    setSlides(newSlides);
+    setCurrentSlideIndex(slides.length); // Jump to first imported slide
+    saveToHistory(newSlides, slides.length);
+    setIsTemplatesOpen(false);
+    setTemplatePreview(null);
+    setSlideName((prev) => prev === "Untitled Slide" ? template.name : prev);
   };
 
-  // Handle file upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -462,7 +487,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Update element
   const updateElement = (id: string, updates: Partial<SlideElement>) => {
     const newSlides = [...slides];
     const element = newSlides[currentSlideIndex].elements.find((e) => e.id === id);
@@ -472,7 +496,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Update element style
   const updateElementStyle = (id: string, styleUpdates: Partial<SlideElement["style"]>) => {
     const newSlides = [...slides];
     const element = newSlides[currentSlideIndex].elements.find((e) => e.id === id);
@@ -482,7 +505,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Delete element
   const deleteElement = () => {
     if (selectedElement) {
       const newSlides = [...slides];
@@ -495,7 +517,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Delete" || e.key === "Backspace") {
@@ -522,17 +543,16 @@ export default function SlideEditorPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedElement, historyIndex, history]);
 
-  // Mouse handlers for dragging
   const handleMouseDown = (e: React.MouseEvent, elementId: string) => {
-    // Don't drag if clicking on resize handles
+
     if ((e.target as HTMLElement).dataset.resizeHandle) return;
-    // Don't drag if we're actively editing this text element
+
     if (editingTextId === elementId) return;
 
     e.preventDefault();
     e.stopPropagation();
     setSelectedElement(elementId);
-    // Exit text editing if we click a different element
+
     if (editingTextId && editingTextId !== elementId) {
       setEditingTextId(null);
     }
@@ -550,7 +570,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Mouse handlers for resizing
   const handleResizeStart = (e: React.MouseEvent, handle: ResizeHandle) => {
     e.preventDefault();
     e.stopPropagation();
@@ -619,7 +638,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Add new slide
   const addNewSlide = () => {
     const newSlide: Slide = {
       id: Math.random().toString(36).substr(2, 9),
@@ -634,7 +652,6 @@ export default function SlideEditorPage() {
     setCurrentSlideIndex(newSlides.length - 1);
   };
 
-  // Duplicate slide
   const duplicateSlide = () => {
     const duplicated: Slide = {
       ...JSON.parse(JSON.stringify(currentSlide)),
@@ -648,7 +665,6 @@ export default function SlideEditorPage() {
     setCurrentSlideIndex(currentSlideIndex + 1);
   };
 
-  // Delete slide
   const deleteSlide = () => {
     if (slides.length > 1) {
       const newSlides = slides.filter((_, i) => i !== currentSlideIndex);
@@ -659,7 +675,6 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Save show to database
   const saveSlide = async () => {
     setIsSaving(true);
     setSaveMessage(null);
@@ -669,24 +684,38 @@ export default function SlideEditorPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: savedShowId,
-          contentId: params.slideId,
+          contentId: params.slideId === "new" ? undefined : params.slideId,
           name: slideName,
           slidesData: slides,
-          startTime: scheduleStart || null,
-          finishTime: scheduleFinish || null,
+          startTime: scheduleStart ? new Date(scheduleStart).toISOString() : null,
+          finishTime: scheduleFinish ? new Date(scheduleFinish).toISOString() : null,
         }),
       });
 
       if (!response.ok) throw new Error("Failed to save");
 
       const data = await response.json();
-      if (data.show?.id) setSavedShowId(data.show.id);
+      if (data.show?.id) {
+        setSavedShowId(data.show.id);
 
-      localStorage.setItem("slideflow_slides", JSON.stringify(slides));
+
+        if (params.slideId === "new") {
+          window.history.replaceState(null, "", `/editor/${data.show.id}`);
+        }
+      }
+
+
       saveToHistory(slides, currentSlideIndex);
 
       setSaveMessage("Saved!");
       setTimeout(() => setSaveMessage(null), 2000);
+
+      const prefs = JSON.parse(localStorage.getItem("slideflow_notifications") || "{}");
+      if (prefs.slideUpdates !== false) {
+        toast.success("Slide saved successfully", {
+          description: `Saved as "${slideName}"`
+        });
+      }
     } catch (err) {
       console.error("Save error:", err);
       setSaveMessage("Save failed");
@@ -696,37 +725,53 @@ export default function SlideEditorPage() {
     }
   };
 
-  // Schedule the show
   const scheduleShow = async () => {
-    if (!scheduleStart || !scheduleFinish) return;
+    setScheduleError("");
+
+    if (!scheduleStart || !scheduleFinish) {
+      setScheduleError("Please set both a start time and finish time.");
+      return;
+    }
+
+    const startDate = new Date(scheduleStart);
+    const finishDate = new Date(scheduleFinish);
+
+    if (finishDate <= startDate) {
+      setScheduleError("Finish time must be after the start time.");
+      return;
+    }
+
     setIsScheduleOpen(false);
     await saveSlide();
   };
 
-  // Present slides
-  const presentSlides = () => {
-    localStorage.setItem("slideflow_slides", JSON.stringify(slides));
-    window.open("/display", "_blank");
+  const presentSlides = async () => {
+    try {
+      await fetch("/api/shows/present", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          showId: savedShowId || null,
+          showName: slideName || "Untitled",
+          slidesData: slides,
+        }),
+      });
+    } catch (error) {
+      console.error("Error starting presentation:", error);
+    }
   };
 
-  // Load default Pexels images when dialog opens
   useEffect(() => {
     if (isPexelsOpen && pexelsImages.length === 0) {
       searchPexels("business");
     }
   }, [isPexelsOpen]);
 
-  // Save slides to localStorage
-  useEffect(() => {
-    localStorage.setItem("slideflow_slides", JSON.stringify(slides));
-  }, [slides]);
-
   const selectedElementData = currentSlide.elements.find((e) => e.id === selectedElement);
 
-  // Resize handles component
   const ResizeHandles = ({ elementId }: { elementId: string }) => (
     <>
-      {/* Corner resize handles */}
+
       <div
         data-resize-handle="nw"
         className="absolute -top-1 -left-1 w-3 h-3 bg-primary border-2 border-white rounded-full cursor-nw-resize z-20"
@@ -750,10 +795,18 @@ export default function SlideEditorPage() {
     </>
   );
 
+  if (isAuthChecking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <TooltipProvider>
       <div className={`h-screen flex flex-col ${darkMode ? 'editor-dark' : ''}`}>
-        {/* Dark Mode Theme Styles */}
+
         <style jsx global>{`
           .editor-dark {
             background-color: ${DARK_BG};
@@ -790,7 +843,7 @@ export default function SlideEditorPage() {
           }
         `}</style>
 
-        {/* Top Toolbar */}
+
         <header className={`h-14 border-b flex items-center justify-between px-4 ${darkMode
           ? 'editor-panel'
           : 'bg-card border-border'
@@ -874,6 +927,11 @@ export default function SlideEditorPage() {
                         className={`w-full rounded-md border px-3 py-2 text-sm ${darkMode ? 'bg-[#2a3042] border-[#3a4156] text-white' : 'bg-white border-gray-300'}`}
                       />
                     </div>
+                    {scheduleError && (
+                      <div className="text-xs text-red-500 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded px-2 py-1.5">
+                        {scheduleError}
+                      </div>
+                    )}
                     <div className="flex gap-2 pt-1">
                       <Button
                         size="sm"
@@ -887,7 +945,7 @@ export default function SlideEditorPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => { setScheduleStart(""); setScheduleFinish(""); }}
+                          onClick={() => { setScheduleStart(""); setScheduleFinish(""); setScheduleError(""); }}
                           className={`${darkMode ? 'editor-button hover:bg-[#3a4156]' : ''}`}
                         >
                           Clear
@@ -923,15 +981,15 @@ export default function SlideEditorPage() {
           </div>
         </header>
 
-        {/* Main Editor Area */}
+
         <div className="flex-1 flex overflow-hidden">
-          {/* Left Sidebar - Tools & Slides */}
+
           {showLeftPanel && (
             <div className={`w-72 border-r flex flex-col ${darkMode
               ? 'bg-gray-900/90 border-gray-700 city-lights'
               : 'bg-card'
               }`}>
-              {/* Tools */}
+
               <div className={`p-4 border-b ${darkMode ? 'border-gray-700' : ''}`}>
                 <h3 className={`text-sm font-medium mb-3 ${darkMode ? 'text-white' : ''}`}>Tools</h3>
                 <div className="grid grid-cols-4 gap-2">
@@ -1010,7 +1068,7 @@ export default function SlideEditorPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className={`h-9 w-9 ${darkMode ? 'hover:bg-gray-700' : ''}`}
+                              className={`h-9 w-9 ${darkMode ? 'text-white hover:bg-gray-700' : ''}`}
                               onClick={() => { addShape("rect"); setShowShapesMenu(false); }}
                             >
                               <Square className="h-4 w-4" />
@@ -1023,7 +1081,7 @@ export default function SlideEditorPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className={`h-9 w-9 ${darkMode ? 'hover:bg-gray-700' : ''}`}
+                              className={`h-9 w-9 ${darkMode ? 'text-white hover:bg-gray-700' : ''}`}
                               onClick={() => { addShape("circle"); setShowShapesMenu(false); }}
                             >
                               <Circle className="h-4 w-4" />
@@ -1036,7 +1094,7 @@ export default function SlideEditorPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className={`h-9 w-9 ${darkMode ? 'hover:bg-gray-700' : ''}`}
+                              className={`h-9 w-9 ${darkMode ? 'text-white hover:bg-gray-700' : ''}`}
                               onClick={() => { addShape("triangle"); setShowShapesMenu(false); }}
                             >
                               <Triangle className="h-4 w-4" />
@@ -1050,7 +1108,7 @@ export default function SlideEditorPage() {
 
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="outline" size="icon" onClick={() => { setIsTemplatesOpen(true); loadTemplates(); }} className={darkMode ? 'border-white hover:bg-gray-800' : ''}>
+                      <Button variant="outline" size="icon" onClick={() => { setIsTemplatesOpen(true); setTemplateSearch(""); setSelectedGenre("All"); setTemplatePreview(null); }} className={darkMode ? 'border-white hover:bg-gray-800' : ''}>
                         <LayoutTemplate className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
@@ -1059,7 +1117,7 @@ export default function SlideEditorPage() {
                 </div>
               </div>
 
-              {/* Actions */}
+
               <div className={`p-4 border-b ${darkMode ? 'border-gray-700' : ''}`}>
                 <h3 className={`text-sm font-medium mb-3 ${darkMode ? 'text-white' : ''}`}>Actions</h3>
                 <div className="flex gap-2">
@@ -1092,14 +1150,19 @@ export default function SlideEditorPage() {
                 </div>
               </div>
 
-              {/* Slide Thumbnails */}
+
               <ScrollArea className="flex-1">
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className={`text-sm font-medium ${darkMode ? 'text-white' : ''}`}>Slides</h3>
-                    <Button variant="ghost" size="icon" className={`h-6 w-6 ${darkMode ? 'text-white hover:bg-gray-800' : ''}`} onClick={addNewSlide}>
-                      <Plus className="h-3 w-3" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className={`h-6 w-6 ${darkMode ? 'text-white hover:bg-gray-800' : ''}`} onClick={addNewSlide}>
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">Add Slides</TooltipContent>
+                    </Tooltip>
                   </div>
                   <div className="space-y-2">
                     {slides.map((slide, index) => (
@@ -1119,7 +1182,7 @@ export default function SlideEditorPage() {
                         }}
                         onClick={() => setCurrentSlideIndex(index)}
                       >
-                        {/* Render slide elements as thumbnails */}
+
                         <div className="absolute inset-0" style={{ transform: "scale(0.25)", transformOrigin: "top left" }}>
                           <div className="relative w-[960px] h-[540px]">
                             {slide.backgroundImage && (
@@ -1161,7 +1224,7 @@ export default function SlideEditorPage() {
                           </div>
                         </div>
 
-                        {/* Slide number badge */}
+
                         <div className="absolute top-1 left-1 z-10">
                           <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${darkMode ? 'bg-gray-800 text-white' : 'bg-background/90'
                             }`}>
@@ -1174,7 +1237,7 @@ export default function SlideEditorPage() {
                 </div>
               </ScrollArea>
 
-              {/* Slide Controls */}
+
               <div className={`p-4 border-t ${darkMode ? 'border-gray-700' : ''}`}>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className={`flex-1 ${darkMode ? 'border-gray-600 hover:bg-gray-800' : ''}`} onClick={duplicateSlide}>
@@ -1188,7 +1251,7 @@ export default function SlideEditorPage() {
             </div>
           )}
 
-          {/* Toggle Left Panel */}
+
           <button
             className={`w-6 border-r flex items-center justify-center ${darkMode
               ? 'bg-gray-900 border-gray-700 hover:bg-gray-800'
@@ -1199,7 +1262,7 @@ export default function SlideEditorPage() {
             {showLeftPanel ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </button>
 
-          {/* Canvas Area */}
+
           <div
             className={`flex-1 flex items-center justify-center overflow-auto p-8 ${darkMode
               ? 'bg-gray-950 city-lights'
@@ -1263,17 +1326,17 @@ export default function SlideEditorPage() {
                         textDecoration: element.style.textDecoration,
                         wordWrap: "break-word",
                         overflowWrap: "break-word",
-                        whiteSpace: "normal",
+                        whiteSpace: "pre-wrap",
                         lineHeight: "1.4",
                       }}
                       contentEditable={editingTextId === element.id}
                       suppressContentEditableWarning
                       onMouseDown={(e) => {
-                        // Only stop propagation if we're in text editing mode
+
                         if (editingTextId === element.id) {
                           e.stopPropagation();
                         }
-                        // Otherwise let it bubble up to the parent drag handler
+
                       }}
                       onDoubleClick={(e) => {
                         e.stopPropagation();
@@ -1308,7 +1371,7 @@ export default function SlideEditorPage() {
                   )}
                   {element.type === "shape" && <div className="w-full h-full" style={{ backgroundColor: element.style.backgroundColor }} />}
 
-                  {/* Resize handles - only show when selected */}
+
                   {selectedElement === element.id && (
                     <ResizeHandles elementId={element.id} />
                   )}
@@ -1317,7 +1380,7 @@ export default function SlideEditorPage() {
             </div>
           </div>
 
-          {/* Toggle Right Panel */}
+
           <button
             className={`w-6 border-l flex items-center justify-center ${darkMode
               ? 'bg-gray-900 border-gray-700 hover:bg-gray-800'
@@ -1328,7 +1391,7 @@ export default function SlideEditorPage() {
             {showRightPanel ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </button>
 
-          {/* Right Sidebar - Properties */}
+
           {showRightPanel && (
             <div className={`w-72 border-l flex flex-col ${darkMode
               ? 'bg-gray-900/90 border-gray-700'
@@ -1341,7 +1404,7 @@ export default function SlideEditorPage() {
               <ScrollArea className="flex-1">
                 {selectedElementData ? (
                   <div className="p-4 space-y-4">
-                    {/* Position and Size - Auto-updating */}
+
                     <div>
                       <label className={`text-xs font-medium ${darkMode ? 'text-gray-400' : ''}`}>Position & Size</label>
                       <div className="grid grid-cols-2 gap-2 mt-1">
@@ -1386,7 +1449,7 @@ export default function SlideEditorPage() {
 
                     <Separator className={darkMode ? 'bg-gray-700' : ''} />
 
-                    {/* Text Properties */}
+
                     {selectedElementData.type === "text" && (
                       <>
                         <div>
@@ -1504,7 +1567,7 @@ export default function SlideEditorPage() {
                       </>
                     )}
 
-                    {/* Shape Properties */}
+
                     {selectedElementData.type === "shape" && (
                       <div>
                         <label className={`text-xs font-medium ${darkMode ? 'text-gray-400' : ''}`}>Background Color</label>
@@ -1556,7 +1619,7 @@ export default function SlideEditorPage() {
                           onChange={(e) => {
                             const newSlides = [...slides];
                             newSlides[currentSlideIndex].backgroundColor = e.target.value;
-                            // Clear background image if color is explicitly set
+
                             newSlides[currentSlideIndex].backgroundImage = undefined;
                             setSlides(newSlides);
                           }}
@@ -1568,7 +1631,7 @@ export default function SlideEditorPage() {
                           onChange={(e) => {
                             const newSlides = [...slides];
                             newSlides[currentSlideIndex].backgroundColor = e.target.value;
-                            // Clear background image if color is explicitly set
+
                             newSlides[currentSlideIndex].backgroundImage = undefined;
                             setSlides(newSlides);
                           }}
@@ -1601,7 +1664,7 @@ export default function SlideEditorPage() {
           )}
         </div>
 
-        {/* Pexels Dialog */}
+
         <Dialog open={isPexelsOpen} onOpenChange={setIsPexelsOpen}>
           <DialogContent className={`max-w-4xl max-h-[80vh] ${darkMode ? 'bg-gray-900 border-gray-700' : ''}`}>
             <DialogHeader>
@@ -1650,54 +1713,200 @@ export default function SlideEditorPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Templates Dialog */}
+
         <Dialog open={isTemplatesOpen} onOpenChange={setIsTemplatesOpen}>
-          <DialogContent className={`max-w-5xl max-h-[85vh] ${darkMode ? 'bg-gray-900 border-gray-700' : ''}`}>
+          <DialogContent className={`max-w-4xl max-h-[90vh] flex flex-col ${darkMode ? 'bg-gray-900 border-gray-700' : ''}`}>
             <DialogHeader>
               <DialogTitle className={darkMode ? 'text-white' : ''}>Templates</DialogTitle>
-              <DialogDescription className={darkMode ? 'text-gray-400' : ''}>Browse templates via API (coming soon)</DialogDescription>
+              <DialogDescription className={darkMode ? 'text-gray-400' : ''}>Choose a template to add to your presentation</DialogDescription>
             </DialogHeader>
 
-            {/* Search and Filter Bar */}
-            <div className="flex gap-3 items-center">
+            <div className="flex gap-3 items-center mt-2">
               <div className="relative flex-1">
                 <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`} />
                 <Input
                   placeholder="Search templates..."
                   value={templateSearch}
-                  onChange={(e) => {
-                    setTemplateSearch(e.target.value);
-                    loadTemplates(selectedGenre, e.target.value);
-                  }}
-                  className={`pl-9 ${darkMode ? 'editor-input' : ''}`}
+                  onChange={(e) => setTemplateSearch(e.target.value)}
+                  className={`pl-9 ${darkMode ? 'editor-input border-gray-600' : ''}`}
                 />
               </div>
               <select
                 value={selectedGenre}
-                onChange={(e) => {
-                  setSelectedGenre(e.target.value);
-                  loadTemplates(e.target.value, templateSearch);
-                }}
-                className={`h-9 rounded-md border px-3 text-sm min-w-[160px] ${darkMode
+                onChange={(e) => setSelectedGenre(e.target.value)}
+                className={`h-9 rounded-md border px-3 text-sm min-w-[160px] cursor-pointer outline-none focus:ring-1 focus:ring-primary ${darkMode
                   ? 'bg-gray-800 border-gray-600 text-white'
                   : 'bg-white border-input'
                   }`}
               >
-                <option value="All">All Genres</option>
-                {/* {templateGenres.map((g) => (
-                  <option key={g} value={g}>{g}</option>
-                ))} */}
+                {TEMPLATE_GENRES.map((g) => (
+                  <option key={g} value={g}>{g === "All" ? "All Genres" : g}</option>
+                ))}
               </select>
             </div>
 
-            <ScrollArea className="h-[500px]">
-              {/* Template list removed. Pending API integration. */}
-              <div className="flex items-center justify-center h-64 border-2 border-dashed rounded-lg">
-                <div className="text-center">
-                  <LayoutTemplate className={`h-12 w-12 mx-auto mb-3 ${darkMode ? 'text-gray-600' : 'text-gray-300'}`} />
-                  <p className={darkMode ? 'text-gray-400' : 'text-muted-foreground'}>Templates will be loaded from external API.</p>
+            <ScrollArea className="h-[60vh] min-h-[400px] mt-2 pr-4">
+              {templatePreview ? (
+                <div className="space-y-4 p-1">
+                  <Button variant="ghost" size="sm" onClick={() => setTemplatePreview(null)} className={darkMode ? 'text-gray-300 hover:bg-gray-800' : ''}>
+                    <ChevronLeft className="h-4 w-4 mr-1" /> Back to templates
+                  </Button>
+                  <div className="text-center">
+                    <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : ''}`}>{templatePreview.name}</h3>
+                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>{templatePreview.description}</p>
+                  </div>
+                  <div className="flex justify-center w-full">
+                    <div
+                      className="flex items-center justify-center bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden mb-2 relative"
+                      style={{
+                        width: '100%',
+                        maxWidth: '800px',
+                        aspectRatio: '16/9',
+                        backgroundColor: templatePreview.slides[0].backgroundColor,
+                        border: darkMode ? '1px solid #374151' : '1px solid #e5e7eb',
+                      }}
+                    >
+                      <svg viewBox="0 0 960 540" style={{ width: '100%', height: '100%' }}>
+                        <foreignObject x="0" y="0" width="960" height="540">
+                          <div
+                            style={{
+                              width: 960,
+                              height: 540,
+                              position: 'relative',
+                            }}
+                          >
+                            {templatePreview.slides[0].elements.map((el) => (
+                              <div
+                                key={el.id}
+                                style={{
+                                  position: 'absolute',
+                                  left: el.x,
+                                  top: el.y,
+                                  width: el.width,
+                                  height: el.height,
+                                  backgroundColor: el.style.backgroundColor || 'transparent',
+                                  borderRadius: el.style.borderRadius,
+                                  clipPath: el.style.clipPath,
+                                  overflow: 'hidden',
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  justifyContent: el.style.textAlign === 'center' ? 'center' : el.style.textAlign === 'right' ? 'flex-end' : 'flex-start',
+                                }}
+                              >
+                                {el.type === 'text' && (
+                                  <span
+                                    style={{
+                                      fontSize: el.style.fontSize || 16,
+                                      color: el.style.color || '#000',
+                                      fontFamily: el.style.fontFamily || 'Arial',
+                                      fontWeight: el.style.fontWeight || 'normal',
+                                      fontStyle: el.style.fontStyle || 'normal',
+                                      textAlign: (el.style.textAlign as any) || 'left',
+                                      width: '100%',
+                                      lineHeight: 1.3,
+                                      whiteSpace: 'pre-wrap',
+                                      overflow: 'hidden',
+                                    }}
+                                  >
+                                    {el.content}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </foreignObject>
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="flex justify-center gap-3 pt-2">
+                    <Button onClick={() => importTemplate(templatePreview)}>
+                      <Plus className="h-4 w-4 mr-2" /> Import Template
+                    </Button>
+                    <Button variant="outline" onClick={() => setTemplatePreview(null)} className={darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-800' : ''}>Cancel</Button>
+                  </div>
                 </div>
-              </div>
+              ) : filteredEditorTemplates.length === 0 ? (
+                <div className="flex items-center justify-center h-64 border-2 border-dashed rounded-lg mt-4 w-full">
+                  <div className="text-center">
+                    <LayoutTemplate className={`h-12 w-12 mx-auto mb-3 ${darkMode ? 'text-gray-600' : 'text-gray-300'}`} />
+                    <p className={darkMode ? 'text-gray-400' : 'text-muted-foreground'}>No templates found. Try a different search or genre.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-1 mt-2">
+                  {filteredEditorTemplates.map((template) => (
+                    <div
+                      key={template.id}
+                      className={`cursor-pointer rounded-lg border p-2 transition-all hover:shadow-md ${darkMode ? 'border-gray-700 hover:border-blue-500 bg-gray-800' : 'border-gray-200 hover:border-blue-400 bg-white'}`}
+                      onClick={() => setTemplatePreview(template)}
+                    >
+
+                      <div
+                        className="flex items-center justify-center bg-gray-100 dark:bg-gray-900 rounded-md overflow-hidden mb-2"
+                        style={{
+                          width: '100%',
+                          aspectRatio: '16/9',
+                          backgroundColor: template.slides[0].backgroundColor,
+                          position: 'relative',
+                        }}
+                      >
+                        <svg viewBox="0 0 960 540" style={{ width: '100%', height: '100%' }}>
+                          <foreignObject x="0" y="0" width="960" height="540">
+                            <div
+                              style={{
+                                width: 960,
+                                height: 540,
+                                position: 'relative',
+                              }}
+                            >
+                              {template.slides[0].elements.map((el) => {
+                                return (
+                                  <div
+                                    key={el.id}
+                                    style={{
+                                      position: 'absolute',
+                                      left: el.x,
+                                      top: el.y,
+                                      width: el.width,
+                                      height: el.height,
+                                      backgroundColor: el.style.backgroundColor || 'transparent',
+                                      borderRadius: el.style.borderRadius,
+                                      clipPath: el.style.clipPath,
+                                      overflow: 'hidden',
+                                    }}
+                                  >
+                                    {el.type === 'text' && (
+                                      <span
+                                        style={{
+                                          fontSize: el.style.fontSize || 16,
+                                          color: el.style.color || '#000',
+                                          fontFamily: el.style.fontFamily || 'Arial',
+                                          fontWeight: el.style.fontWeight || 'normal',
+                                          fontStyle: el.style.fontStyle || 'normal',
+                                          textAlign: (el.style.textAlign as any) || 'left',
+                                          width: '100%',
+                                          lineHeight: 1.3,
+                                          whiteSpace: 'pre-wrap',
+                                          overflow: 'hidden',
+                                          display: 'block',
+                                        }}
+                                      >
+                                        {el.content}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </foreignObject>
+                        </svg>
+                      </div>
+                      <p className={`text-xs font-semibold truncate ${darkMode ? 'text-white' : ''}`}>{template.name}</p>
+                      <p className={`text-[10px] truncate ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>{template.genre}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </ScrollArea>
           </DialogContent>
         </Dialog>

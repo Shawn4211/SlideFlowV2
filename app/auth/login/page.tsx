@@ -3,11 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { User, Lock } from "lucide-react";
+import { User, Lock, Eye, EyeOff } from "lucide-react";
 
-const ADMIN_EMAIL = "admin@slideflow.app";
-
-/* ───────── Particle System ───────── */
 interface Particle {
   x: number;
   y: number;
@@ -42,7 +39,6 @@ function useParticles(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
     };
     window.addEventListener("mousemove", onMouseMove);
 
-    // Create particles
     const count = 120;
     const particles: Particle[] = [];
     for (let i = 0; i < count; i++) {
@@ -66,11 +62,9 @@ function useParticles(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
 
-        // Pulse glow
         p.pulse += p.pulseSpeed;
         const glow = Math.sin(p.pulse) * 0.2 + 0.8;
 
-        // Mouse repel
         const dx = p.x - mouse.x;
         const dy = p.y - mouse.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -80,28 +74,23 @@ function useParticles(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
           p.vy += (dy / dist) * force;
         }
 
-        // Damping
         p.vx *= 0.98;
         p.vy *= 0.98;
 
-        // Move
         p.x += p.vx;
         p.y += p.vy;
 
-        // Wrap
         if (p.x < 0) p.x = canvas.width;
         if (p.x > canvas.width) p.x = 0;
         if (p.y < 0) p.y = canvas.height;
         if (p.y > canvas.height) p.y = 0;
 
-        // Draw particle
         const alpha = p.opacity * glow;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
         ctx.fill();
 
-        // Connections
         for (let j = i + 1; j < particles.length; j++) {
           const p2 = particles[j];
           const cx = p.x - p2.x;
@@ -132,7 +121,6 @@ function useParticles(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
   }, [canvasRef]);
 }
 
-/* ───────── Login Page ───────── */
 export default function LoginPage() {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -140,6 +128,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+
+  useEffect(() => {
+    setMounted(true);
+    const saved = localStorage.getItem("slideflow_remember_user");
+    if (saved) {
+      setUsername(saved);
+      setRememberMe(true);
+    }
+  }, []);
 
   useParticles(canvasRef);
 
@@ -148,21 +148,34 @@ export default function LoginPage() {
     setIsLoading(true);
     setError("");
 
-    if (username !== "Admin") {
-      setError("Invalid username or password");
-      setIsLoading(false);
-      return;
-    }
-
     try {
+      // Look up the user's email by username from the database
+      const { data: email, error: lookupError } = await supabase.rpc(
+        "get_email_by_username",
+        { lookup_username: username }
+      );
+
+      if (lookupError || !email) {
+        setError("Invalid username or password");
+        setIsLoading(false);
+        return;
+      }
+
+      // Verify password via Supabase Auth
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: ADMIN_EMAIL,
+        email,
         password,
       });
 
       if (authError) {
         setError("Invalid username or password");
       } else {
+        if (rememberMe) {
+          localStorage.setItem("slideflow_remember_user", username);
+        } else {
+          localStorage.removeItem("slideflow_remember_user");
+        }
+        localStorage.setItem("slideflow_current_user", username);
         router.push("/dashboard");
         router.refresh();
       }
@@ -191,14 +204,14 @@ export default function LoginPage() {
           font-family: 'Outfit', sans-serif;
         }
 
-        /* ---- Particle canvas ---- */
+        
         .lp-canvas {
           position: absolute;
           inset: 0;
           z-index: 0;
         }
 
-        /* ---- Content wrapper ---- */
+        
         .lp-content {
           position: relative;
           z-index: 2;
@@ -210,7 +223,7 @@ export default function LoginPage() {
           margin: 1rem;
         }
 
-        /* ---- SlideFlow brand ---- */
+        
         .lp-brand {
           font-family: 'Outfit', sans-serif;
           font-weight: 900;
@@ -226,7 +239,7 @@ export default function LoginPage() {
           user-select: none;
         }
 
-        /* ---- Glass Card ---- */
+        
         .lp-card {
           width: 100%;
           padding: 2.2rem 2rem 1.8rem;
@@ -278,6 +291,26 @@ export default function LoginPage() {
           color: rgba(255,255,255,0.12);
           width: 14px; height: 14px;
           pointer-events: none;
+        }
+
+        .lp-eye-btn {
+          position: absolute;
+          right: 10px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: none;
+          border: none;
+          color: rgba(255,255,255,0.3);
+          cursor: pointer;
+          padding: 2px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: color 0.2s ease;
+          z-index: 1;
+        }
+        .lp-eye-btn:hover {
+          color: rgba(255,255,255,0.6);
         }
 
         .lp-input {
@@ -362,6 +395,19 @@ export default function LoginPage() {
           transform: none;
         }
 
+        .lp-copyright {
+          position: absolute;
+          bottom: 16px;
+          left: 0;
+          right: 0;
+          text-align: center;
+          font-family: 'Outfit', sans-serif;
+          font-size: 0.72rem;
+          color: rgba(255,255,255,0.25);
+          z-index: 2;
+          user-select: none;
+        }
+
         @media (max-width: 480px) {
           .lp-brand {
             font-size: 2.4rem;
@@ -373,7 +419,7 @@ export default function LoginPage() {
         }
       `}</style>
 
-      <div className="lp">
+      <div className={`lp${mounted ? " hydrated" : ""}`}>
         <canvas ref={canvasRef} className="lp-canvas" />
 
         <div className="lp-content">
@@ -391,12 +437,14 @@ export default function LoginPage() {
 
               <div className="lp-ig">
                 <Lock className="lp-ic-l" />
-                <input type="password" className="lp-input" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                <Lock className="lp-ic-r" />
+                <input type={showPassword ? "text" : "password"} className="lp-input" style={{ paddingRight: '42px' }} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <button type="button" className="lp-eye-btn" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
 
               <div className="lp-row">
-                <label><input type="checkbox" defaultChecked /> Remember me</label>
+                <label><input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} /> Remember me</label>
               </div>
 
               {error && <div className="lp-error">{error}</div>}
@@ -407,6 +455,8 @@ export default function LoginPage() {
             </form>
           </div>
         </div>
+
+        <p className="lp-copyright">© {new Date().getFullYear()} SlideFlow. All rights reserved.</p>
       </div>
     </>
   );

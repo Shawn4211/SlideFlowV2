@@ -124,3 +124,15 @@
     @apply bg-background text-foreground;
   }
 }
+
+.lp {
+  min-height: 100vh;
+  background: #080c14;
+}
+.lp .lp-content {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.lp.hydrated .lp-content {
+  opacity: 1;
+}
