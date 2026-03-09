@@ -15,6 +15,7 @@ import {
   FileText,
   CalendarClock,
   X,
+  AlertCircle,
 } from "lucide-react";
 
 interface Show {
@@ -79,12 +80,12 @@ export default function SchedulesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingShowId, setEditingShowId] = useState<number | null>(null);
 
-  // Create/edit form state
   const [formName, setFormName] = useState("");
   const [formContentId, setFormContentId] = useState("");
   const [formExistingShowId, setFormExistingShowId] = useState("");
   const [formStart, setFormStart] = useState("");
   const [formFinish, setFormFinish] = useState("");
+  const [formError, setFormError] = useState("");
 
   const fetchShows = async () => {
     setLoading(true);
@@ -125,6 +126,7 @@ export default function SchedulesPage() {
     setFormExistingShowId("");
     setFormStart("");
     setFormFinish("");
+    setFormError("");
     setEditingShowId(null);
   };
 
@@ -133,19 +135,72 @@ export default function SchedulesPage() {
     setIsCreateOpen(true);
   };
 
+  const toLocalDatetimeString = (iso: string) => {
+    const d = new Date(iso);
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const toISOFromLocal = (localStr: string) => {
+    return new Date(localStr).toISOString();
+  };
+
   const openEdit = (show: Show) => {
     setFormName(show.name);
     setFormContentId(show.content_id?.toString() || "");
-    setFormStart(show.start_time ? show.start_time.slice(0, 16) : "");
-    setFormFinish(show.finish_time ? show.finish_time.slice(0, 16) : "");
+    setFormStart(show.start_time ? toLocalDatetimeString(show.start_time) : "");
+    setFormFinish(show.finish_time ? toLocalDatetimeString(show.finish_time) : "");
     setEditingShowId(show.id);
     setIsCreateOpen(true);
   };
 
   const handleSave = async () => {
-    if (!formStart || !formFinish) return;
+    setFormError("");
 
-    // If scheduling an existing show, update it with the schedule times
+    // Validate: must select a show or content (unless editing)
+    if (!editingShowId && !formExistingShowId && !formContentId) {
+      setFormError("Please select a saved slide or content to schedule.");
+      return;
+    }
+
+    // Validate: start and finish times are required
+    if (!formStart || !formFinish) {
+      setFormError("Please set both a start time and finish time.");
+      return;
+    }
+
+    const isoStart = toISOFromLocal(formStart);
+    const isoFinish = toISOFromLocal(formFinish);
+    const startDate = new Date(isoStart);
+    const finishDate = new Date(isoFinish);
+
+    // Validate: finish must be after start
+    if (finishDate <= startDate) {
+      setFormError("Finish time must be after the start time.");
+      return;
+    }
+
+    // Validate: no overlapping schedules with existing shows
+    const overlapping = shows.find((s) => {
+      // Skip the show we're currently editing
+      if (editingShowId && s.id === editingShowId) return false;
+      if (formExistingShowId && s.id === parseInt(formExistingShowId, 10)) return false;
+      if (!s.start_time || !s.finish_time) return false;
+
+      const existingStart = new Date(s.start_time);
+      const existingFinish = new Date(s.finish_time);
+
+      // Two time ranges overlap if one starts before the other ends, and vice versa
+      return startDate < existingFinish && finishDate > existingStart;
+    });
+
+    if (overlapping) {
+      setFormError(
+        `This time overlaps with "${overlapping.name}" (${formatDateTime(overlapping.start_time!)} – ${formatDateTime(overlapping.finish_time!)}). Please choose a different time.`
+      );
+      return;
+    }
+
     if (formExistingShowId) {
       try {
         const res = await fetch("/api/shows", {
@@ -154,8 +209,8 @@ export default function SchedulesPage() {
           body: JSON.stringify({
             id: parseInt(formExistingShowId, 10),
             name: formName || undefined,
-            startTime: formStart,
-            finishTime: formFinish,
+            startTime: isoStart,
+            finishTime: isoFinish,
           }),
         });
         if (res.ok) {
@@ -172,8 +227,8 @@ export default function SchedulesPage() {
 
     const body: any = {
       name: formName || "Untitled Schedule",
-      startTime: formStart,
-      finishTime: formFinish,
+      startTime: isoStart,
+      finishTime: isoFinish,
     };
 
     if (editingShowId) body.id = editingShowId;
@@ -198,12 +253,16 @@ export default function SchedulesPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this schedule?")) return;
+    if (!confirm("Are you sure you want to remove this project from the schedule?")) return;
     try {
-      await fetch(`/api/shows?id=${id}`, { method: "DELETE" });
+      await fetch("/api/shows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, startTime: null, finishTime: null }),
+      });
       fetchShows();
     } catch (err) {
-      console.error("Failed to delete show:", err);
+      console.error("Failed to remove schedule:", err);
     }
   };
 
@@ -222,7 +281,7 @@ export default function SchedulesPage() {
         </Button>
       </div>
 
-      {/* Create/Edit Schedule Dialog */}
+
       {isCreateOpen && (
         <Card className="border-2 border-primary/20">
           <CardHeader className="pb-3">
@@ -238,7 +297,9 @@ export default function SchedulesPage() {
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <label className="block text-sm font-medium mb-1">Schedule Name</label>
+                <label className="block text-sm font-medium mb-1">
+                  Schedule Name <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   value={formName}
@@ -248,7 +309,9 @@ export default function SchedulesPage() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-sm font-medium mb-1">Existing Slide / Content</label>
+                <label className="block text-sm font-medium mb-1">
+                  Existing Slide / Content <span className="text-red-500">*</span>
+                </label>
                 {!editingShowId && (
                   <div className="space-y-2">
                     {allShows.filter(s => !s.start_time).length > 0 && (
@@ -296,7 +359,9 @@ export default function SchedulesPage() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Start Time</label>
+                <label className="block text-sm font-medium mb-1">
+                  Start Time <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="datetime-local"
                   value={formStart}
@@ -305,7 +370,9 @@ export default function SchedulesPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Finish Time</label>
+                <label className="block text-sm font-medium mb-1">
+                  Finish Time <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="datetime-local"
                   value={formFinish}
@@ -313,11 +380,17 @@ export default function SchedulesPage() {
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
               </div>
+              {formError && (
+                <div className="sm:col-span-2 flex items-center gap-2 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-700 dark:text-red-400">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  {formError}
+                </div>
+              )}
               <div className="sm:col-span-2 flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => { setIsCreateOpen(false); resetForm(); }}>
                   Cancel
                 </Button>
-                <Button onClick={handleSave} disabled={!formStart || !formFinish}>
+                <Button onClick={handleSave}>
                   {editingShowId ? "Update Schedule" : "Create Schedule"}
                 </Button>
               </div>
@@ -327,14 +400,14 @@ export default function SchedulesPage() {
       )
       }
 
-      {/* Loading State */}
+
       {
         loading && (
           <div className="text-center py-12 text-muted-foreground">Loading schedules...</div>
         )
       }
 
-      {/* Schedule Cards */}
+
       {
         !loading && shows.length > 0 && (
           <div className="grid gap-4">
@@ -396,7 +469,7 @@ export default function SchedulesPage() {
         )
       }
 
-      {/* Empty State */}
+
       {
         !loading && shows.length === 0 && !isCreateOpen && (
           <Card className="border-dashed">

@@ -18,7 +18,7 @@ export default function CredentialsPage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Password state
+
   const [passwords, setPasswords] = useState({ current: "", new_pw: "", confirm: "" });
   const [passwordMessage, setPasswordMessage] = useState("");
   const [updatingPassword, setUpdatingPassword] = useState(false);
@@ -29,7 +29,7 @@ export default function CredentialsPage() {
       if (!user) return;
       setUser({ email: user.email || "", id: user.id });
 
-      // Fetch profile from credentials table
+
       const { data } = await supabase
         .from("credentials")
         .select("first_name, last_name, username")
@@ -50,19 +50,19 @@ export default function CredentialsPage() {
         });
       }
 
-      // Load avatar
+
       const { data: avatarData } = supabase.storage
         .from("avatars")
         .getPublicUrl(`${user.id}/avatar`);
 
-      // Check if avatar exists by trying to fetch it
+
       try {
         const res = await fetch(avatarData.publicUrl, { method: "HEAD" });
         if (res.ok) {
           setAvatarUrl(avatarData.publicUrl + "?t=" + Date.now());
         }
       } catch {
-        // No avatar uploaded yet
+
       }
     }
     loadUser();
@@ -76,13 +76,13 @@ export default function CredentialsPage() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    // Validate file type
+
     if (!file.type.startsWith("image/")) {
       setMessage("Please select an image file.");
       return;
     }
 
-    // Validate file size (max 2MB)
+
     if (file.size > 2 * 1024 * 1024) {
       setMessage("Image must be under 2MB.");
       return;
@@ -134,6 +134,14 @@ export default function CredentialsPage() {
 
   const handlePasswordUpdate = async () => {
     setPasswordMessage("");
+    if (!passwords.current) {
+      setPasswordMessage("Please enter your current password.");
+      return;
+    }
+    if (!passwords.new_pw) {
+      setPasswordMessage("Please enter a new password.");
+      return;
+    }
     if (passwords.new_pw !== passwords.confirm) {
       setPasswordMessage("New passwords do not match.");
       return;
@@ -203,7 +211,7 @@ export default function CredentialsPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">First name</Label>
+                <Label htmlFor="firstName">First name <span className="text-red-500">*</span></Label>
                 <Input
                   id="firstName"
                   value={profile.first_name}
@@ -211,7 +219,7 @@ export default function CredentialsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Last name</Label>
+                <Label htmlFor="lastName">Last name <span className="text-red-500">*</span></Label>
                 <Input
                   id="lastName"
                   value={profile.last_name}
@@ -220,7 +228,7 @@ export default function CredentialsPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
               <Input
                 id="email"
                 type="email"
@@ -249,7 +257,7 @@ export default function CredentialsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="currentPassword">Current password</Label>
+              <Label htmlFor="currentPassword">Current password <span className="text-red-500">*</span></Label>
               <Input
                 id="currentPassword"
                 type="password"
@@ -258,7 +266,7 @@ export default function CredentialsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="newPassword">New password</Label>
+              <Label htmlFor="newPassword">New password <span className="text-red-500">*</span></Label>
               <Input
                 id="newPassword"
                 type="password"
@@ -267,7 +275,7 @@ export default function CredentialsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm new password</Label>
+              <Label htmlFor="confirmPassword">Confirm new password <span className="text-red-500">*</span></Label>
               <Input
                 id="confirmPassword"
                 type="password"

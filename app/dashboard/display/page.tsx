@@ -7,7 +7,7 @@ import { Tv2, Clock, CalendarClock, MonitorPlay, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-/* ── Shared types (mirrors display/page.tsx) ── */
+
 
 interface SlideElement {
     id: string;
@@ -49,7 +49,7 @@ interface Show {
     content?: { id: number; name: string; type: string; file_url: string } | null;
 }
 
-/* ── Helpers ── */
+
 
 function formatDateTime(iso: string) {
     return new Date(iso).toLocaleString("en-US", {
@@ -61,7 +61,7 @@ function formatDateTime(iso: string) {
     });
 }
 
-/* ── Slide renderer (scaled preview) ── */
+
 
 function SlidePreview({
     slide,
@@ -73,16 +73,16 @@ function SlidePreview({
     return (
         <div
             className={`relative w-full overflow-hidden rounded-lg ${className}`}
-            style={{ paddingBottom: "56.25%" /* 16:9 */ }}
+            style={{ paddingBottom: "56.25%"  }}
         >
             <div
                 className="absolute inset-0"
-                style={{ backgroundColor: slide.backgroundColor }}
+                style={{ backgroundColor: slide.backgroundColor, containerType: "inline-size" }}
             >
                 {slide.elements.map((el) => (
                     <div
                         key={el.id}
-                        className="absolute"
+                        className="absolute overflow-hidden"
                         style={{
                             left: `${(el.x / 960) * 100}%`,
                             top: `${(el.y / 540) * 100}%`,
@@ -109,7 +109,6 @@ function SlidePreview({
                                     : el.style.textAlign === "right"
                                         ? "flex-end"
                                         : "flex-start",
-                            containerType: "inline-size",
                         }}
                     >
                         {el.type === "text" && (
@@ -146,7 +145,7 @@ function SlidePreview({
     );
 }
 
-/* ── Auto-cycling slide preview ── */
+
 
 function CyclingSlidePreview({
     slides,
@@ -179,8 +178,8 @@ function CyclingSlidePreview({
                             key={i}
                             onClick={() => setIndex(i)}
                             className={`h-2 rounded-full transition-all duration-300 ${i === index
-                                    ? "w-6 bg-primary"
-                                    : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                                ? "w-6 bg-primary"
+                                : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"
                                 }`}
                         />
                     ))}
@@ -190,11 +189,12 @@ function CyclingSlidePreview({
     );
 }
 
-/* ── Page ── */
+
 
 export default function DisplayDashboardPage() {
     const [currentShow, setCurrentShow] = useState<Show | null>(null);
-    const [nextShow, setNextShow] = useState<Show | null>(null);
+    const [upcomingShows, setUpcomingShows] = useState<Show[]>([]);
+    const [manualPresent, setManualPresent] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
@@ -203,7 +203,8 @@ export default function DisplayDashboardPage() {
             const res = await fetch("/api/shows/active");
             const data = await res.json();
             setCurrentShow(data.currentShow ?? null);
-            setNextShow(data.nextShow ?? null);
+            setUpcomingShows(data.upcomingShows ?? (data.nextShow ? [data.nextShow] : []));
+            setManualPresent(data.manualPresent ?? null);
             setLastRefreshed(new Date());
         } catch (err) {
             console.error("Failed to fetch active shows:", err);
@@ -212,7 +213,6 @@ export default function DisplayDashboardPage() {
         }
     }, []);
 
-    // Initial fetch + 30 s polling
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 30_000);
@@ -221,7 +221,7 @@ export default function DisplayDashboardPage() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
+            
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Display</h1>
@@ -245,17 +245,17 @@ export default function DisplayDashboardPage() {
                 </div>
             </div>
 
-            {/* Loading */}
+            
             {loading && (
                 <div className="text-center py-20 text-muted-foreground">
                     Loading display status…
                 </div>
             )}
 
-            {/* Main content area */}
+            
             {!loading && (
                 <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-                    {/* ── Currently Displaying (center / main) ── */}
+                    
                     <Card className="overflow-hidden">
                         <CardHeader className="pb-3">
                             <div className="flex items-center justify-between">
@@ -263,22 +263,52 @@ export default function DisplayDashboardPage() {
                                     <Tv2 className="h-5 w-5 text-primary" />
                                     <CardTitle>Currently Displaying</CardTitle>
                                 </div>
-                                {currentShow && (
-                                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+                                {(manualPresent || currentShow) && (
+                                    <Badge className={manualPresent ? "bg-purple-100 text-purple-700 hover:bg-purple-100" : "bg-green-100 text-green-700 hover:bg-green-100"}>
                                         <span className="relative flex h-2 w-2 mr-1.5">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
-                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-600" />
+                                            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${manualPresent ? 'bg-purple-500' : 'bg-green-500'} opacity-75`} />
+                                            <span className={`relative inline-flex rounded-full h-2 w-2 ${manualPresent ? 'bg-purple-600' : 'bg-green-600'}`} />
                                         </span>
-                                        Live
+                                        {manualPresent ? "Manual Present" : "Live"}
                                     </Badge>
                                 )}
                             </div>
                         </CardHeader>
 
                         <CardContent>
-                            {currentShow && currentShow.slides_data?.length > 0 ? (
+                            {manualPresent && manualPresent.slides_data?.length > 0 ? (
                                 <div className="space-y-4">
-                                    {/* Slide preview */}
+                                    
+                                    <div className="border rounded-xl overflow-hidden shadow-sm">
+                                        <CyclingSlidePreview
+                                            slides={manualPresent.slides_data}
+                                            className="border-0"
+                                        />
+                                    </div>
+
+                                    
+                                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                                        <div>
+                                            <p className="font-semibold">{manualPresent.show_name || "Manual Present"}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {manualPresent.slides_data.length} slide
+                                                {manualPresent.slides_data.length !== 1 && "s"}
+                                                {" • Manually presented"}
+                                            </p>
+                                        </div>
+                                        {manualPresent.started_at && (
+                                            <div className="text-right text-xs text-muted-foreground">
+                                                <div className="flex items-center gap-1">
+                                                    <Clock className="h-3 w-3" />
+                                                    Since {formatDateTime(manualPresent.started_at)}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : currentShow && currentShow.slides_data?.length > 0 ? (
+                                <div className="space-y-4">
+                                    
                                     <div className="border rounded-xl overflow-hidden shadow-sm">
                                         <CyclingSlidePreview
                                             slides={currentShow.slides_data}
@@ -286,7 +316,7 @@ export default function DisplayDashboardPage() {
                                         />
                                     </div>
 
-                                    {/* Show info */}
+                                    
                                     <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                                         <div>
                                             <p className="font-semibold">{currentShow.name}</p>
@@ -308,7 +338,7 @@ export default function DisplayDashboardPage() {
                                     </div>
                                 </div>
                             ) : (
-                                /* Empty state */
+                                
                                 <div className="flex flex-col items-center justify-center py-16 text-center">
                                     <div className="rounded-full bg-muted p-5 mb-4">
                                         <Tv2 className="h-10 w-10 text-muted-foreground/50" />
@@ -322,14 +352,21 @@ export default function DisplayDashboardPage() {
                                         >
                                             Schedules
                                         </Link>{" "}
-                                        page to see it here.
+                                        page or use the Present button on the{" "}
+                                        <Link
+                                            href="/dashboard/screens"
+                                            className="text-primary underline underline-offset-2"
+                                        >
+                                            Screens
+                                        </Link>{" "}
+                                        page.
                                     </p>
                                 </div>
                             )}
                         </CardContent>
                     </Card>
 
-                    {/* ── Up Next (right sidebar) ── */}
+                    
                     <Card className="h-fit">
                         <CardHeader className="pb-3">
                             <div className="flex items-center gap-2">
@@ -339,47 +376,45 @@ export default function DisplayDashboardPage() {
                         </CardHeader>
 
                         <CardContent>
-                            {nextShow && nextShow.slides_data?.length > 0 ? (
+                            {upcomingShows.length > 0 ? (
                                 <div className="space-y-4">
-                                    {/* Thumbnail of first slide */}
-                                    <div className="border rounded-lg overflow-hidden shadow-sm">
-                                        <SlidePreview slide={nextShow.slides_data[0]} />
-                                    </div>
+                                    {upcomingShows.map((show) => (
+                                        <div key={show.id} className="space-y-3 pb-4 border-b last:border-b-0 last:pb-0">
+                                            
+                                            {show.slides_data?.length > 0 ? (
+                                                <div className="border rounded-lg overflow-hidden shadow-sm">
+                                                    <SlidePreview slide={show.slides_data[0]} />
+                                                </div>
+                                            ) : (
+                                                <div className="rounded-lg bg-muted flex items-center justify-center"
+                                                    style={{ paddingBottom: "56.25%" }}
+                                                />
+                                            )}
 
-                                    {/* Info */}
-                                    <div className="space-y-2">
-                                        <p className="font-semibold">{nextShow.name}</p>
-                                        {nextShow.content && (
-                                            <p className="text-xs text-muted-foreground">
-                                                {nextShow.content.name}
-                                            </p>
-                                        )}
-                                        <p className="text-xs text-muted-foreground">
-                                            {nextShow.slides_data.length} slide
-                                            {nextShow.slides_data.length !== 1 && "s"}
-                                        </p>
+                                            
+                                            <div className="space-y-2">
+                                                <p className="font-semibold">{show.name}</p>
+                                                {show.content && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {show.content.name}
+                                                    </p>
+                                                )}
+                                                {show.slides_data && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {show.slides_data.length} slide
+                                                        {show.slides_data.length !== 1 && "s"}
+                                                    </p>
+                                                )}
 
-                                        {nextShow.start_time && (
-                                            <div className="flex items-center gap-1.5 text-xs p-2 bg-blue-50 text-blue-700 rounded-md dark:bg-blue-950 dark:text-blue-300">
-                                                <Clock className="h-3 w-3" />
-                                                Starts {formatDateTime(nextShow.start_time)}
+                                                {show.start_time && (
+                                                    <div className="flex items-center gap-1.5 text-xs p-2 bg-blue-50 text-blue-700 rounded-md dark:bg-blue-950 dark:text-blue-300">
+                                                        <Clock className="h-3 w-3" />
+                                                        Starts {formatDateTime(show.start_time)}
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : nextShow ? (
-                                <div className="space-y-3">
-                                    <div className="rounded-lg bg-muted flex items-center justify-center"
-                                        style={{ paddingBottom: "56.25%" }}
-                                    >
-                                    </div>
-                                    <p className="font-semibold">{nextShow.name}</p>
-                                    {nextShow.start_time && (
-                                        <div className="flex items-center gap-1.5 text-xs p-2 bg-blue-50 text-blue-700 rounded-md dark:bg-blue-950 dark:text-blue-300">
-                                            <Clock className="h-3 w-3" />
-                                            Starts {formatDateTime(nextShow.start_time)}
                                         </div>
-                                    )}
+                                    ))}
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-10 text-center">

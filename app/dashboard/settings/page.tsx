@@ -1,11 +1,62 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import {
-  Bell,
-} from "lucide-react";
+import { Bell } from "lucide-react";
 
 export default function SettingsPage() {
+  const [slideUpdates, setSlideUpdates] = useState(true);
+  const [presentationAlerts, setPresentationAlerts] = useState(true);
+  const [weeklyReports, setWeeklyReports] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    // Load saved preferences on mount
+    const saved = localStorage.getItem("slideflow_notifications");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.slideUpdates === "boolean") setSlideUpdates(parsed.slideUpdates);
+        if (typeof parsed.presentationAlerts === "boolean") setPresentationAlerts(parsed.presentationAlerts);
+        if (typeof parsed.weeklyReports === "boolean") setWeeklyReports(parsed.weeklyReports);
+      } catch (e) {
+        console.error("Error parsing saved notifications:", e);
+      }
+    }
+    setIsLoaded(true);
+  }, []);
+
+  const savePreferences = (key: string, value: boolean) => {
+    const currentPrefs = {
+      slideUpdates,
+      presentationAlerts,
+      weeklyReports,
+      [key]: value,
+    };
+    localStorage.setItem("slideflow_notifications", JSON.stringify(currentPrefs));
+  };
+
+  const handleSlideUpdatesChange = (checked: boolean) => {
+    setSlideUpdates(checked);
+    savePreferences("slideUpdates", checked);
+  };
+
+  const handlePresentationAlertsChange = (checked: boolean) => {
+    setPresentationAlerts(checked);
+    savePreferences("presentationAlerts", checked);
+  };
+
+  const handleWeeklyReportsChange = (checked: boolean) => {
+    setWeeklyReports(checked);
+    savePreferences("weeklyReports", checked);
+  };
+
+  if (!isLoaded) {
+    return null; // or a loading spinner
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -33,7 +84,10 @@ export default function SettingsPage() {
                 Get notified when slides are updated
               </p>
             </div>
-            <Switch defaultChecked />
+            <Switch
+              checked={slideUpdates}
+              onCheckedChange={handleSlideUpdatesChange}
+            />
           </div>
           <Separator />
           <div className="flex items-center justify-between">
@@ -43,7 +97,10 @@ export default function SettingsPage() {
                 Get notified about presentation issues
               </p>
             </div>
-            <Switch defaultChecked />
+            <Switch
+              checked={presentationAlerts}
+              onCheckedChange={handlePresentationAlertsChange}
+            />
           </div>
           <Separator />
           <div className="flex items-center justify-between">
@@ -53,7 +110,10 @@ export default function SettingsPage() {
                 Receive weekly analytics reports
               </p>
             </div>
-            <Switch />
+            <Switch
+              checked={weeklyReports}
+              onCheckedChange={handleWeeklyReportsChange}
+            />
           </div>
         </CardContent>
       </Card>

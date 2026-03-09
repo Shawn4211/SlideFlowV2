@@ -6,10 +6,12 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Monitor,
+  LayoutTemplate,
   Images,
   Calendar,
   Tv2,
   Settings,
+  Info,
 } from "lucide-react";
 
 const navItems = [
@@ -22,6 +24,11 @@ const navItems = [
     title: "Screens",
     href: "/dashboard/screens",
     icon: Monitor,
+  },
+  {
+    title: "Templates",
+    href: "/dashboard/templates",
+    icon: LayoutTemplate,
   },
   {
     title: "Content",
@@ -42,6 +49,11 @@ const navItems = [
     title: "Settings",
     href: "/dashboard/settings",
     icon: Settings,
+  },
+  {
+    title: "About",
+    href: "/dashboard/about",
+    icon: Info,
   },
 ];
 

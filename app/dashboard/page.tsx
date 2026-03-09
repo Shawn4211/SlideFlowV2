@@ -1,31 +1,140 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LayoutDashboard, Presentation, Images, ListVideo, Activity, Clock, ExternalLink } from "lucide-react";
+import { LayoutDashboard, Presentation, Activity, Clock, ExternalLink, Edit, MonitorPlay, StopCircle } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
-// Mock slides data
-const mockSlides = [
-  { id: "1", name: "Welcome Slide", isActive: true },
-  { id: "2", name: "Product Showcase", isActive: true },
-  { id: "3", name: "Contact Information", isActive: true },
-];
+interface Show {
+  id: number;
+  name: string | null;
+  content_id: number | null;
+  slides_data: any[];
+  start_time: string | null;
+  finish_time: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
-const mockPlaylists = [
-  { id: "1", name: "Main Playlist", itemCount: 3 },
-];
+interface ManualPresent {
+  id: number;
+  show_id: number | null;
+  slides_data: any[];
+  show_name: string | null;
+  started_at: string;
+}
 
-const mockSchedules = [
-  { id: "1", name: "Business Hours" },
-];
+export default function DashboardPage() {
+  const [shows, setShows] = useState<Show[]>([]);
+  const [currentShow, setCurrentShow] = useState<Show | null>(null);
+  const [upcomingShows, setUpcomingShows] = useState<Show[]>([]);
+  const [manualPresent, setManualPresent] = useState<ManualPresent | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isStopping, setIsStopping] = useState(false);
+  const [isStoppingShow, setIsStoppingShow] = useState(false);
 
-export default async function DashboardPage() {
-  const slides = mockSlides;
-  const playlists = mockPlaylists;
-  const schedules = mockSchedules;
+  const fetchData = async () => {
+    try {
+      const [showsRes, activeRes] = await Promise.all([
+        fetch("/api/shows"),
+        fetch("/api/shows/active"),
+      ]);
+      const showsData = await showsRes.json();
+      const activeData = await activeRes.json();
 
-  const activeSlides = slides.filter(s => s.isActive).length;
-  const totalDuration = slides.reduce((acc, s) => acc + 10, 0); // Assuming 10s per slide
+      setShows(showsData.shows || []);
+      setCurrentShow(activeData.currentShow || null);
+      setUpcomingShows(activeData.upcomingShows || (activeData.nextShow ? [activeData.nextShow] : []));
+      setManualPresent(activeData.manualPresent || null);
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+
+    // Mock weekly report notification based on preferences
+    const hasReported = sessionStorage.getItem("slideflow_weekly_reported");
+    if (!hasReported) {
+      const prefs = JSON.parse(localStorage.getItem("slideflow_notifications") || "{}");
+      if (prefs.weeklyReports !== false) {
+        setTimeout(() => {
+          toast.info("Weekly Analytics Ready", {
+            description: "Your presentation report for the week is now available.",
+            duration: 6000,
+          });
+          sessionStorage.setItem("slideflow_weekly_reported", "true");
+        }, 1500);
+      }
+    }
+  }, []);
+
+  const handleStopPresent = async () => {
+    setIsStopping(true);
+    try {
+      await fetch("/api/shows/present", { method: "DELETE" });
+      setManualPresent(null);
+      await fetchData();
+    } catch (error) {
+      console.error("Error stopping presentation:", error);
+    } finally {
+      setIsStopping(false);
+    }
+  };
+
+  const handleStopShow = async (showId: number) => {
+    setIsStoppingShow(true);
+    try {
+      await fetch("/api/shows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: showId, startTime: null, finishTime: null }),
+      });
+      await fetchData();
+    } catch (error) {
+      console.error("Error stopping show:", error);
+    } finally {
+      setIsStoppingShow(false);
+    }
+  };
+
+  const totalSlides = shows.reduce(
+    (acc, s) => acc + (Array.isArray(s.slides_data) ? s.slides_data.length : 0),
+    0
+  );
+
+  const totalDuration = shows.reduce(
+    (acc, s) =>
+      acc +
+      (Array.isArray(s.slides_data)
+        ? s.slides_data.reduce((a: number, slide: any) => a + (slide.duration || 10), 0)
+        : 0),
+    0
+  );
+
+  const scheduledShows = shows.filter((s) => s.start_time).length;
+
+  const formatDateTime = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  };
 
   return (
     <div className="space-y-6">
@@ -36,94 +145,200 @@ export default async function DashboardPage() {
             Overview of your digital signage presentation
           </p>
         </div>
-        <Link href="/display" target="_blank">
-          <Button>
+        <div className="flex items-center gap-2">
+          {manualPresent && (
+            <Button
+              variant="destructive"
+              onClick={handleStopPresent}
+              disabled={isStopping}
+            >
+              <StopCircle className="mr-2 h-4 w-4" />
+              {isStopping ? "Stopping..." : "Stop Present"}
+            </Button>
+          )}
+          <Button onClick={() => window.open("/display", "_blank")}>
             <ExternalLink className="mr-2 h-4 w-4" />
             Open Display
           </Button>
-        </Link>
+        </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Slides</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Shows</CardTitle>
             <Presentation className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{slides.length}</div>
+            <div className="text-2xl font-bold">{isLoading ? "—" : shows.length}</div>
             <p className="text-xs text-muted-foreground">
-              {activeSlides} active slides
+              {isLoading ? "Loading..." : `${totalSlides} total slides`}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Presentation Duration</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Duration</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {Math.floor(totalDuration / 60)}m {totalDuration % 60}s
+              {isLoading ? "—" : formatDuration(totalDuration)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Total loop time
+              Across all shows
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Playlists</CardTitle>
-            <ListVideo className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{playlists.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Active content sequences
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Schedules</CardTitle>
+            <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
             <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{schedules.length}</div>
+            <div className="text-2xl font-bold">{isLoading ? "—" : scheduledShows}</div>
             <p className="text-xs text-muted-foreground">
-              Time-based rules
+              Shows with scheduled times
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Slides Preview & Cast Info */}
+
       <div className="grid gap-4 md:grid-cols-2">
+
         <Card>
           <CardHeader>
-            <CardTitle>Current Slides</CardTitle>
-            <CardDescription>Your presentation slides</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <MonitorPlay className="h-5 w-5" />
+              Active Display
+            </CardTitle>
+            <CardDescription>Currently playing and upcoming shows</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {slides.map((slide, index) => (
-                <div key={slide.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center text-sm font-medium">
-                      {index + 1}
+            <div className="space-y-4">
+
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Now Playing</p>
+                {isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                ) : manualPresent ? (
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                        <Presentation className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{manualPresent.show_name || "Manual Present"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Started {formatDateTime(manualPresent.started_at)}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{slide.name}</p>
-                      <p className="text-xs text-muted-foreground">10 seconds</p>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default" className="bg-blue-600 dark:bg-blue-500">Presenting</Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
+                        onClick={handleStopPresent}
+                        disabled={isStopping}
+                        title="Stop Present"
+                      >
+                        <StopCircle className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <Badge variant="default">Active</Badge>
-                </div>
-              ))}
+                ) : currentShow ? (
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+                        <Presentation className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{currentShow.name || "Untitled"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {currentShow.start_time && formatDateTime(currentShow.start_time)}
+                          {currentShow.finish_time && ` — ${formatDateTime(currentShow.finish_time)}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default" className="bg-green-600 dark:bg-green-500">Live</Badge>
+                      <Link href={`/editor/${currentShow.id}`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 dark:hover:bg-gray-800">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
+                        onClick={() => handleStopShow(currentShow.id)}
+                        disabled={isStoppingShow}
+                        title="Stop Show"
+                      >
+                        <StopCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 border rounded-lg border-dashed text-center">
+                    <p className="text-sm text-muted-foreground">No show currently playing</p>
+                  </div>
+                )}
+              </div>
+
+
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Up Next</p>
+                {isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                ) : upcomingShows.length > 0 ? (
+                  <div className="space-y-2">
+                    {upcomingShows.map((show) => (
+                      <div key={show.id} className="flex items-center justify-between p-3 border rounded-lg dark:border-gray-800">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
+                            <Clock className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{show.name || "Untitled"}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Starts {show.start_time && formatDateTime(show.start_time)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">Scheduled</Badge>
+                          <Link href={`/editor/${show.id}`}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 dark:hover:bg-gray-800">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
+                            onClick={() => handleStopShow(show.id)}
+                            disabled={isStoppingShow}
+                            title="Cancel Schedule"
+                          >
+                            <StopCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 border rounded-lg border-dashed text-center">
+                    <p className="text-sm text-muted-foreground">No upcoming shows</p>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="mt-4">
               <Link href="/dashboard/screens">
@@ -135,108 +350,54 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
+
         <Card>
           <CardHeader>
-            <CardTitle>Cast to TV</CardTitle>
-            <CardDescription>Display your slides on any screen</CardDescription>
+            <CardTitle>Recent Shows</CardTitle>
+            <CardDescription>Your most recently updated shows</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm font-medium mb-2">Display URL</p>
-                <code className="text-xs bg-background p-2 rounded block font-mono">
-                  https://yourdomain.com/display
-                </code>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Setup Instructions:</p>
-                <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                  <li>Open the Display URL in any browser</li>
-                  <li>For Raspberry Pi: Install Chromium browser</li>
-                  <li>Configure auto-start with kiosk mode</li>
-                  <li>Slides auto-refresh every 30 seconds</li>
-                </ol>
-              </div>
-
-              <div className="flex gap-2">
-                <Link href="/display" target="_blank" className="flex-1">
-                  <Button variant="outline" className="w-full">
-                    <Presentation className="mr-2 h-4 w-4" />
-                    Preview Display
-                  </Button>
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : shows.length === 0 ? (
+              <div className="p-4 border rounded-lg border-dashed text-center">
+                <p className="text-sm text-muted-foreground">No shows yet</p>
+                <Link href="/dashboard/screens">
+                  <Button variant="link" className="mt-2">Create your first show</Button>
                 </Link>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                {shows.slice(0, 5).map((show) => {
+                  const slideCount = Array.isArray(show.slides_data) ? show.slides_data.length : 0;
+                  return (
+                    <div key={show.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center text-sm font-medium">
+                          {slideCount}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{show.name || "Untitled"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {slideCount} {slideCount === 1 ? "slide" : "slides"}
+                            {show.start_time && ` · ${formatDateTime(show.start_time)}`}
+                          </p>
+                        </div>
+                      </div>
+                      <Link href={`/editor/${show.id}`}>
+                        <Button variant="ghost" size="sm">
+                          <Edit className="mr-1 h-3 w-3" />
+                          Edit
+                        </Button>
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Raspberry Pi Setup Info */}
-      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-        <CardHeader>
-          <CardTitle className="text-blue-900">Raspberry Pi Setup Guide</CardTitle>
-          <CardDescription className="text-blue-700">
-            Configure your Raspberry Pi to display slides automatically
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-black text-green-400 p-4 rounded-lg font-mono text-sm">
-            <p className="text-gray-400"># Install Chromium (if not already installed)</p>
-            <p>sudo apt-get update</p>
-            <p>sudo apt-get install chromium-browser</p>
-            <br />
-            <p className="text-gray-400"># Edit autostart file</p>
-            <p>sudo nano /etc/xdg/lxsession/LXDE-pi/autostart</p>
-            <br />
-            <p className="text-gray-400"># Add this line to the file:</p>
-            <p>@chromium-browser --kiosk https://yourdomain.com/display</p>
-            <br />
-            <p className="text-gray-400"># Save and reboot</p>
-            <p>sudo reboot</p>
-          </div>
-          <p className="text-sm text-blue-800">
-            The display will automatically refresh every 30 seconds to check for updates, 
-            and perform a full page reload every 5 minutes to ensure fresh content.
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest changes and updates</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Activity className="h-4 w-4 text-blue-500" />
-              <div className="flex-1">
-                <p className="text-sm">New slide created</p>
-                <p className="text-xs text-muted-foreground">Welcome Slide</p>
-              </div>
-              <span className="text-xs text-muted-foreground">2h ago</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Presentation className="h-4 w-4 text-green-500" />
-              <div className="flex-1">
-                <p className="text-sm">Presentation started</p>
-                <p className="text-xs text-muted-foreground">Display mode activated</p>
-              </div>
-              <span className="text-xs text-muted-foreground">4h ago</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Images className="h-4 w-4 text-purple-500" />
-              <div className="flex-1">
-                <p className="text-sm">Slide updated</p>
-                <p className="text-xs text-muted-foreground">Product Showcase</p>
-              </div>
-              <span className="text-xs text-muted-foreground">1d ago</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

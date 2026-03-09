@@ -117,6 +117,7 @@ export default function ContentPage() {
   };
 
   const handleDeleteAsset = async (assetId: string) => {
+    if (!confirm("Are you sure you want to delete this file? This action cannot be undone.")) return;
     try {
       await deleteAsset(assetId);
     } catch (err) {
@@ -174,14 +175,14 @@ export default function ContentPage() {
   });
 
   const filteredFolders = folders.filter(folder => {
-    // Show folders in current directory
+
     const matchesCurrentFolder = folder.parent_id === currentFolderId;
     return matchesCurrentFolder;
   });
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Content</h1>
@@ -208,7 +209,7 @@ export default function ContentPage() {
         </div>
       </div>
 
-      {/* Breadcrumb */}
+
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         {getBreadcrumbPath().map((item, index, array) => (
           <div key={item.id || "home"} className="flex items-center">
@@ -226,7 +227,7 @@ export default function ContentPage() {
         ))}
       </div>
 
-      {/* Tabs and Controls */}
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <div className="flex justify-between items-center flex-wrap gap-4">
           <TabsList>
@@ -262,7 +263,7 @@ export default function ContentPage() {
           </div>
         </div>
 
-        {/* Folders Section */}
+
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-muted-foreground">Folders</h3>
           <div className={cn(
@@ -295,7 +296,7 @@ export default function ContentPage() {
               </Card>
             ))}
 
-            {/* Add Folder Card */}
+
             <Dialog open={newFolderDialog} onOpenChange={setNewFolderDialog}>
               <DialogTrigger asChild>
                 <Card className="border-dashed cursor-pointer hover:bg-accent">
@@ -339,7 +340,7 @@ export default function ContentPage() {
           </div>
         </div>
 
-        {/* Assets Content */}
+
         <TabsContent value={activeTab} className="space-y-4">
           {isLoading ? (
             <div className="flex justify-center py-12">
@@ -507,7 +508,7 @@ export default function ContentPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Preview Dialog */}
+
       <Dialog open={!!previewAsset} onOpenChange={() => setPreviewAsset(null)}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
@@ -550,7 +551,7 @@ export default function ContentPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Move Asset Dialog */}
+
       <Dialog open={moveAssetDialog.open} onOpenChange={(open) => setMoveAssetDialog({ open, assetId: null })}>
         <DialogContent>
           <DialogHeader>
@@ -566,7 +567,7 @@ export default function ContentPage() {
               onClick={() => handleMoveAsset(null)}
             >
               <Home className="mr-2 h-4 w-4" />
-              Root Directory
+              Main Folder
             </Button>
             {folders.map((folder) => (
               <Button
@@ -588,7 +589,7 @@ export default function ContentPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Error Alert */}
+
       {error && (
         <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           <p className="font-bold">Error</p>
