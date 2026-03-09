@@ -1640,23 +1640,7 @@ export default function SlideEditorPage() {
                       </div>
                     </div>
 
-                    <Separator className={darkMode ? 'bg-gray-700' : ''} />
 
-                    <div>
-                      <label className={`text-xs font-medium ${darkMode ? 'text-gray-400' : ''}`}>Transition</label>
-                      <select
-                        className={`w-full mt-1 p-2 border rounded text-sm ${darkMode
-                          ? 'bg-gray-800 border-gray-700 text-white'
-                          : ''
-                          }`}
-                        onChange={() => { }}
-                      >
-                        <option>None</option>
-                        <option>Fade</option>
-                        <option>Slide</option>
-                        <option>Zoom</option>
-                      </select>
-                    </div>
                   </div>
                 )}
               </ScrollArea>
