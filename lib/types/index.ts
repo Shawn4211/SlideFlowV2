@@ -41,7 +41,7 @@ export interface Screen {
   isLocked: boolean;
   lastHeartbeat?: Date;
   playerVersion?: string;
-  currentPlaylistId?: string;
+
   currentScheduleId?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -58,7 +58,7 @@ export interface ScreenZone {
     height: number;
   };
   isPrimary: boolean;
-  playlistId?: string;
+
   zIndex: number;
 }
 
@@ -92,45 +92,14 @@ export interface Folder {
   createdAt: Date;
 }
 
-export interface Playlist {
-  id: string;
-  teamId: string;
-  name: string;
-  description?: string;
-  isShared: boolean;
-  shareToken?: string;
-  transition: string;
-  approvalStatus: 'draft' | 'pending' | 'approved' | 'rejected';
-  items: PlaylistItem[];
-  createdBy?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
-export interface PlaylistItem {
-  id: string;
-  playlistId: string;
-  position: number;
-  itemType: 'asset' | 'app' | 'nested_playlist' | 'website';
-  assetId?: string;
-  appId?: string;
-  nestedPlaylistId?: string;
-  websiteUrl?: string;
-  duration: number;
-  transition?: string;
-  conditions: Record<string, any>;
-  playEvery?: number;
-  resumeOnNext: boolean;
-  enabled: boolean;
-  asset?: Asset;
-}
 
 export interface Schedule {
   id: string;
   teamId: string;
   name: string;
   timezone: string;
-  defaultPlaylistId?: string;
+
   isActive: boolean;
   entries: ScheduleEntry[];
   createdBy?: string;
@@ -141,7 +110,7 @@ export interface Schedule {
 export interface ScheduleEntry {
   id: string;
   scheduleId: string;
-  playlistId: string;
+
   startTime: string;
   endTime: string;
   daysOfWeek: number[];
@@ -149,7 +118,7 @@ export interface ScheduleEntry {
   endDate?: Date;
   recurrence?: Record<string, any>;
   priority: number;
-  playlist?: Playlist;
+
 }
 
 export interface Template {
@@ -199,8 +168,7 @@ export interface AppInstance {
 export interface ProofOfPlay {
   id: string;
   screenId: string;
-  playlistId?: string;
-  playlistItemId?: string;
+
   assetId?: string;
   appId?: string;
   startedAt: Date;

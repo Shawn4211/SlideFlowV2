@@ -1,5 +1,9 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const authOptions = {
   providers: [
@@ -10,20 +14,53 @@ export const authOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.username || !credentials?.password) {
+        const username = credentials.username as string;
+        const password = credentials.password as string;
+
+        if (!username || !password) {
           return null;
         }
 
-        // Single admin user authentication
-        if (credentials.username === "Admin" && credentials.password === "Password1") {
-          return {
-            id: "1",
-            email: "admin@slideflow.app",
-            name: "Admin User",
-          };
-        }
+        try {
+          const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-        return null;
+          // Look up the user's email by username via the database function
+          const { data: email, error: lookupError } = await supabase.rpc(
+            "get_email_by_username",
+            { lookup_username: username }
+          );
+
+          if (lookupError || !email) {
+            return null;
+          }
+
+          // Verify the password via Supabase Auth
+          const { data: authData, error: authError } =
+            await supabase.auth.signInWithPassword({ email, password });
+
+          if (authError || !authData.user) {
+            return null;
+          }
+
+          // Fetch the user's profile from credentials table
+          const { data: profile } = await supabase
+            .from("credentials")
+            .select("first_name, last_name")
+            .eq("username", username)
+            .single();
+
+          const name = profile
+            ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || username
+            : username;
+
+          return {
+            id: authData.user.id,
+            email: authData.user.email,
+            name,
+          };
+        } catch {
+          return null;
+        }
       }
     })
   ],

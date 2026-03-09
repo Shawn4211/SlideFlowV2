@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
-// Get all content assets, optionally filtered by folder
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -15,7 +14,6 @@ export async function GET(request: NextRequest) {
     if (folderId) {
       query = query.eq("folder_id", folderId);
     } else {
-      // Get content not in any folder (root level)
       query = query.is("folder_id", null);
     }
 
@@ -39,7 +37,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Move asset to different folder
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
@@ -77,7 +74,6 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// Delete asset
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -90,7 +86,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Get asset info first to delete from storage
     const { data: asset, error: fetchError } = await supabase
       .from("content")
       .select("file_url")
@@ -105,7 +100,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete from database first
     const { error: deleteError } = await supabase
       .from("content")
       .delete()
@@ -119,7 +113,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete from storage
     if (asset?.file_url) {
       const urlParts = asset.file_url.split("/");
       const filePath = urlParts.slice(urlParts.indexOf("content") + 1).join("/");

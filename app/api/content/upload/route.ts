@@ -14,7 +14,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Determine file type based on MIME type and extension
     const mimeType = file.type;
     const fileName = file.name;
     const fileExtension = fileName.split(".").pop()?.toLowerCase() || "";
@@ -35,7 +34,6 @@ export async function POST(request: NextRequest) {
       type = "other";
     }
 
-    // Upload file to Supabase Storage
     const filePath = `uploads/${Date.now()}-${fileName}`;
     const fileBuffer = await file.arrayBuffer();
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -53,18 +51,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get public URL
     const { data: publicUrlData } = supabase.storage
       .from("content")
       .getPublicUrl(filePath);
 
-    // Generate thumbnail for images
     let thumbnailUrl: string | null = null;
     if (type === "image") {
       thumbnailUrl = publicUrlData.publicUrl;
     }
 
-    // Insert content record into database
     const { data: contentData, error: dbError } = await supabase
       .from("content")
       .insert({
@@ -82,7 +77,6 @@ export async function POST(request: NextRequest) {
 
     if (dbError) {
       console.error("Database error:", dbError);
-      // Clean up uploaded file if database insert fails
       await supabase.storage.from("content").remove([filePath]);
       return NextResponse.json(
         { error: "Failed to save content metadata" },
@@ -90,8 +84,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Auto-categorize: map file type to category ID
-    // Image=1, Video=2, Audio=3, Document=4, Other=5
     const categoryMap: Record<string, number> = {
       image: 1,
       video: 2,
@@ -101,10 +93,9 @@ export async function POST(request: NextRequest) {
     };
     const catId = categoryMap[type] || 5;
 
-    // Check for audio type from mime/extension
     let resolvedCatId = catId;
     if (mimeType.startsWith("audio/") || ["mp3", "wav", "ogg", "flac", "aac"].includes(fileExtension)) {
-      resolvedCatId = 3; // Audio
+      resolvedCatId = 3;
     }
 
     const { error: catError } = await supabase
@@ -113,7 +104,6 @@ export async function POST(request: NextRequest) {
 
     if (catError) {
       console.error("Category link error:", catError);
-      // Non-fatal: content was still created
     }
 
     return NextResponse.json({

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
-// Get shows (optionally filter by scheduled or content_id)
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
@@ -9,7 +8,6 @@ export async function GET(request: NextRequest) {
         const scheduled = searchParams.get("scheduled");
         const showId = searchParams.get("id");
 
-        // Get a specific show by ID
         if (showId) {
             const { data, error } = await supabase
                 .from("show")
@@ -21,7 +19,6 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ show: data });
         }
 
-        // Get show by content_id (for editor loading)
         if (contentId) {
             const { data, error } = await supabase
                 .from("show")
@@ -35,7 +32,6 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ show: data });
         }
 
-        // List all shows, optionally only scheduled ones
         let query = supabase
             .from("show")
             .select("*, content(*)")
@@ -59,14 +55,26 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// Create or update a show
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const { id, contentId, name, slidesData, startTime, finishTime, deviceId, locationId, clientId } = body;
 
+        let validContentId = null;
+        if (contentId && !isNaN(parseInt(contentId, 10))) {
+            const parsedId = parseInt(contentId, 10);
+            const { data: contentCheck } = await supabase
+                .from("content")
+                .select("id")
+                .eq("id", parsedId)
+                .single();
+
+            if (contentCheck) {
+                validContentId = parsedId;
+            }
+        }
+
         if (id) {
-            // Update existing show
             const updateData: any = { updated_at: new Date().toISOString() };
             if (name !== undefined) updateData.name = name;
             if (slidesData !== undefined) updateData.slides_data = slidesData;
@@ -75,6 +83,7 @@ export async function POST(request: NextRequest) {
             if (deviceId !== undefined) updateData.device_id = deviceId;
             if (locationId !== undefined) updateData.location_id = locationId;
             if (clientId !== undefined) updateData.client_id = clientId;
+            if (validContentId !== null) updateData.content_id = validContentId;
 
             const { data, error } = await supabase
                 .from("show")
@@ -90,16 +99,12 @@ export async function POST(request: NextRequest) {
 
             return NextResponse.json({ success: true, show: data });
         } else {
-            // Create new show
             const insertData: any = {
                 name: name || "Untitled",
                 slides_data: slidesData || [],
             };
 
-            // Only set content_id if it's a valid number
-            if (contentId && !isNaN(parseInt(contentId, 10))) {
-                insertData.content_id = parseInt(contentId, 10);
-            }
+            if (validContentId !== null) insertData.content_id = validContentId;
             if (startTime) insertData.start_time = startTime;
             if (finishTime) insertData.finish_time = finishTime;
             if (deviceId) insertData.device_id = deviceId;
@@ -125,7 +130,6 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// Delete a show
 export async function DELETE(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
