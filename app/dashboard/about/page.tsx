@@ -54,10 +54,24 @@ export default function AboutPage() {
                         Team
                     </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                     <Badge variant="secondary" className="text-sm px-3 py-1">
                         AnalytIQ&amp;Designers
                     </Badge>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-4">
+                        <div className="flex flex-col space-y-2">
+                            <span className="font-medium">Shawn So</span>
+                            <span className="font-medium">Melvin Raphy</span>
+                        </div>
+                        <div className="flex flex-col space-y-2">
+                            <span className="font-medium">Naas Ali mohamed</span>
+                            <span className="font-medium">Basel Kittaneh</span>
+                        </div>
+                        <div className="flex flex-col space-y-2">
+                            <span className="font-medium">Samuel Rita</span>
+                            <span className="font-medium">Gershon Davadson</span>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
         </div>

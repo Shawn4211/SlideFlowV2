@@ -52,6 +52,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { SLIDE_TEMPLATES, TEMPLATE_GENRES, SlideTemplate } from "@/lib/template-data";
 
 interface SlideElement {
@@ -155,6 +156,10 @@ export default function SlideEditorPage() {
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
+  // Reference for individual slide thumbnail blocks so we can measure dynamic width
+  const [slidePreviewScale, setSlidePreviewScale] = useState(0.25);
+  const slidePreviewContainerRef = useRef<HTMLDivElement>(null);
+
   const [history, setHistory] = useState<HistoryState[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
@@ -179,6 +184,22 @@ export default function SlideEditorPage() {
       }
     });
   }, [router]);
+
+  useEffect(() => {
+    if (!slidePreviewContainerRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const width = entry.contentRect.width;
+        if (width > 0) {
+          setSlidePreviewScale(width / 960);
+        }
+      }
+    });
+
+    observer.observe(slidePreviewContainerRef.current);
+    return () => observer.disconnect();
+  }, [showLeftPanel]);
 
   useEffect(() => {
     const loadContent = async () => {
@@ -849,15 +870,20 @@ export default function SlideEditorPage() {
           : 'bg-card border-border'
           }`}>
           <div className="flex items-center gap-4">
-            <Link href="/dashboard/screens">
-              <Button
-                variant="ghost"
-                size="icon"
-                className={darkMode ? 'editor-button hover:bg-[#3a4156]' : ''}
-              >
-                <ArrowLeft className={`h-5 w-5 ${darkMode ? 'text-white' : ''}`} />
-              </Button>
-            </Link>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href="/dashboard" passHref>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`rounded-full h-10 w-10 shrink-0 ${darkMode ? 'editor-button hover:bg-[#3a4156] bg-gray-800' : 'bg-primary/10 hover:bg-primary/20'}`}
+                  >
+                    <Image src="/TeamLogo.png" alt="Exit" width={20} height={20} className="rounded-full object-cover" />
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">exit</TooltipContent>
+            </Tooltip>
             <Input
               value={slideName}
               onChange={(e) => setSlideName(e.target.value)}
@@ -1151,8 +1177,7 @@ export default function SlideEditorPage() {
               </div>
 
 
-              <ScrollArea className="flex-1">
-                <div className="p-4">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className={`text-sm font-medium ${darkMode ? 'text-white' : ''}`}>Slides</h3>
                     <Tooltip>
@@ -1164,14 +1189,14 @@ export default function SlideEditorPage() {
                       <TooltipContent side="left">Add Slides</TooltipContent>
                     </Tooltip>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3" ref={slidePreviewContainerRef}>
                     {slides.map((slide, index) => (
                       <div
                         key={slide.id}
-                        className={`relative aspect-video border-2 rounded cursor-pointer overflow-hidden ${index === currentSlideIndex
+                        className={`relative aspect-video border rounded cursor-pointer overflow-hidden ${index === currentSlideIndex
                           ? darkMode
                             ? 'border-blue-500'
-                            : "border-primary"
+                            : "border-primary ring-2 ring-primary ring-offset-1"
                           : darkMode
                             ? 'border-[#3a4156]'
                             : "border-border"
@@ -1183,7 +1208,7 @@ export default function SlideEditorPage() {
                         onClick={() => setCurrentSlideIndex(index)}
                       >
 
-                        <div className="absolute inset-0" style={{ transform: "scale(0.25)", transformOrigin: "top left" }}>
+                        <div className="absolute inset-0" style={{ transform: `scale(${slidePreviewScale})`, transformOrigin: "top left" }}>
                           <div className="relative w-[960px] h-[540px]">
                             {slide.backgroundImage && (
                               <img
@@ -1202,7 +1227,6 @@ export default function SlideEditorPage() {
                                   width: element.width,
                                   height: element.height,
                                   ...element.style,
-                                  fontSize: element.style.fontSize ? element.style.fontSize * 2 : undefined,
                                 }}
                               >
                                 {element.type === "text" && (
@@ -1234,19 +1258,17 @@ export default function SlideEditorPage() {
                       </div>
                     ))}
                   </div>
-                </div>
-              </ScrollArea>
 
-
-              <div className={`p-4 border-t ${darkMode ? 'border-gray-700' : ''}`}>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className={`flex-1 ${darkMode ? 'border-gray-600 hover:bg-gray-800' : ''}`} onClick={duplicateSlide}>
-                    Duplicate
-                  </Button>
-                  <Button variant="outline" size="sm" className={`flex-1 ${darkMode ? 'border-gray-600 hover:bg-gray-800' : ''}`} onClick={deleteSlide}>
-                    Delete
-                  </Button>
-                </div>
+                  <div className={`mt-4 pt-4 border-t ${darkMode ? 'border-gray-700' : ''}`}>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className={`flex-1 ${darkMode ? 'border-gray-600 hover:bg-gray-800' : ''}`} onClick={duplicateSlide}>
+                        Duplicate
+                      </Button>
+                      <Button variant="outline" size="sm" className={`flex-1 ${darkMode ? 'border-gray-600 hover:bg-gray-800' : ''}`} onClick={deleteSlide}>
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
               </div>
             </div>
           )}
