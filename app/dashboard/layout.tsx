@@ -75,7 +75,7 @@ export default function DashboardLayout({
         
         <footer className="h-10 border-t bg-card flex items-center justify-center px-6">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} SlideFlow. All rights reserved.
+            © {new Date().getFullYear()} SlideFlow by AnalytiQ&amp;Designers. All rights reserved.
           </p>
         </footer>
       </div>

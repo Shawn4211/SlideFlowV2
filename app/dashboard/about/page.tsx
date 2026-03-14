@@ -62,6 +62,7 @@ export default function AboutPage() {
                         <div className="flex flex-col space-y-2">
                             <span className="font-medium">Shawn So</span>
                             <span className="font-medium">Melvin Raphy</span>
+                            <span className="font-medium">Uday Raizada</span>
                         </div>
                         <div className="flex flex-col space-y-2">
                             <span className="font-medium">Naas Ali mohamed</span>

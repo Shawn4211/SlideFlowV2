@@ -375,9 +375,6 @@ export default function DisplayPage() {
           </div>
 
 
-          <div className="text-center mt-2 text-white/40 text-xs">
-            Use ← → arrow keys to navigate • Space to pause • ESC to exit
-          </div>
         </div>
       </>
 
