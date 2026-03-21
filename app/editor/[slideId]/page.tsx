@@ -342,6 +342,11 @@ export default function SlideEditorPage() {
 
   useEffect(() => {
     localStorage.setItem("slideflow_darkmode", JSON.stringify(darkMode));
+    if (darkMode) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
   }, [darkMode]);
 
   const saveToHistory = useCallback((newSlides: Slide[], newIndex: number, isSystemAction = false) => {
