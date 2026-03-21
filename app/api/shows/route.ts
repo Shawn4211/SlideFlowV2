@@ -61,23 +61,57 @@ export async function POST(request: NextRequest) {
         const { id, contentId, name, slidesData, startTime, finishTime, deviceId, locationId, clientId } = body;
 
         let validContentId = null;
+        let generatedSlidesData = slidesData;
+        
         if (contentId && !isNaN(parseInt(contentId, 10))) {
             const parsedId = parseInt(contentId, 10);
             const { data: contentCheck } = await supabase
                 .from("content")
-                .select("id")
+                .select("*")
                 .eq("id", parsedId)
                 .single();
 
             if (contentCheck) {
                 validContentId = parsedId;
+                
+                // Auto-generate slides_data if missing so Display page works properly
+                if (!slidesData || slidesData.length === 0) {
+                    const isVideo = contentCheck.type === "video";
+                    generatedSlidesData = [
+                        {
+                            id: `auto-${Date.now()}`,
+                            name: contentCheck.name,
+                            duration: isVideo ? 30 : 15,
+                            backgroundColor: "#000000",
+                            elements: [
+                                {
+                                    id: `elem-${Date.now()}`,
+                                    type: isVideo ? "video" : "image",
+                                    src: contentCheck.file_url,
+                                    x: 0,
+                                    y: 0,
+                                    width: 960,
+                                    height: 540,
+                                    style: {}
+                                }
+                            ]
+                        }
+                    ];
+                }
             }
         }
 
         if (id) {
             const updateData: any = { updated_at: new Date().toISOString() };
             if (name !== undefined) updateData.name = name;
-            if (slidesData !== undefined) updateData.slides_data = slidesData;
+            
+            // If we generated fallback slides data, override it. Otherwise update if provided.
+            if (generatedSlidesData !== undefined) {
+                updateData.slides_data = generatedSlidesData;
+            } else if (slidesData !== undefined) {
+                updateData.slides_data = slidesData;
+            }
+            
             if (startTime !== undefined) updateData.start_time = startTime;
             if (finishTime !== undefined) updateData.finish_time = finishTime;
             if (deviceId !== undefined) updateData.device_id = deviceId;
@@ -101,7 +135,7 @@ export async function POST(request: NextRequest) {
         } else {
             const insertData: any = {
                 name: name || "Untitled",
-                slides_data: slidesData || [],
+                slides_data: generatedSlidesData || [],
             };
 
             if (validContentId !== null) insertData.content_id = validContentId;

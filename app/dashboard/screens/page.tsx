@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Edit, Play, Copy, Trash2, MoreVertical, Presentation, Clock, Video, Moon, Sun, Search } from "lucide-react";
+import { Plus, Edit, Play, Copy, Trash2, MoreVertical, Presentation, Clock, Video, Moon, Sun, Search, GripVertical } from "lucide-react";
 
 interface Show {
   id: number;
@@ -42,6 +42,30 @@ const DARK_TEXT = "#ffffff";
 const DARK_TEXT_MUTED = "#d1d5db";
 const ACCENT_COLOR = "#60a5fa";
 
+const formatRelativeTime = (dateString: string | null) => {
+  if (!dateString) return "Unknown";
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (diffInSeconds < 60) return "just now";
+  
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+  
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `${diffInHours}h ago`;
+  
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 30) return `${diffInDays}d ${diffInHours % 24 > 0 ? `${diffInHours % 24}h ` : ''}ago`;
+  
+  const diffInMonths = Math.floor(diffInDays / 30);
+  if (diffInMonths < 12) return `${diffInMonths}mo ago`;
+  
+  const diffInYears = Math.floor(diffInDays / 365);
+  return `${diffInYears}y ago`;
+};
+
 export default function ScreensPage() {
   const router = useRouter();
   const [shows, setShows] = useState<Show[]>([]);
@@ -51,6 +75,11 @@ export default function ScreensPage() {
   const [presentSearch, setPresentSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+
+  // Drag and drop state
+  const [draggedShowId, setDraggedShowId] = useState<number | null>(null);
+  const [dragOverShowId, setDragOverShowId] = useState<number | null>(null);
+  const [isDraggableId, setIsDraggableId] = useState<number | null>(null);
 
   useEffect(() => {
     const savedDarkMode = localStorage.getItem("slideflow_darkmode");
@@ -287,7 +316,7 @@ export default function ScreensPage() {
                     )}
                   </div>
                 </div>
-                <DialogFooter className="gap-2 sm:gap-0">
+                <DialogFooter className="gap-4 sm:space-x-4">
                   <Button variant="outline" onClick={() => { setIsPresentDialogOpen(false); setPresentSearch(""); }} className={darkMode ? 'border-gray-600 text-white hover:bg-gray-800' : ''}>
                     Cancel
                   </Button>
@@ -302,22 +331,22 @@ export default function ScreensPage() {
               <DialogTrigger asChild>
                 <Button className={darkMode ? 'bg-gray-700 hover:bg-gray-600' : ''}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Slide
+                  Add Project
                 </Button>
               </DialogTrigger>
               <DialogContent className={darkMode ? 'bg-gray-900 border-gray-700' : ''}>
                 <DialogHeader>
-                  <DialogTitle className={darkMode ? 'text-white' : ''}>Create New Slide</DialogTitle>
+                  <DialogTitle className={darkMode ? 'text-white' : ''}>Create New Project</DialogTitle>
                   <DialogDescription className={darkMode ? 'text-gray-400' : ''}>
-                    Give your slide a name to get started
+                    Give your project a name to get started
                   </DialogDescription>
                 </DialogHeader>
                 <div className="py-4 space-y-2">
                   <label className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${darkMode ? 'text-white' : ''}`}>
-                    Slide Name <span className="text-red-500">*</span>
+                    Project Name <span className="text-red-500">*</span>
                   </label>
                   <Input
-                    placeholder="Enter slide name..."
+                    placeholder="Enter project name..."
                     value={newSlideName}
                     onChange={(e) => setNewSlideName(e.target.value)}
                     onKeyDown={(e) => {
@@ -355,7 +384,39 @@ export default function ScreensPage() {
               const totalDuration = getShowTotalDuration(show);
 
               return (
-                <Card key={show.id} className={`group overflow-hidden ${darkMode ? 'bg-gray-900/80 border-gray-700' : ''}`}>
+                <Card 
+                  key={show.id} 
+                  draggable={isDraggableId === show.id}
+                  onDragStart={(e) => {
+                    setDraggedShowId(show.id);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (draggedShowId === null || draggedShowId === show.id) return;
+                    
+                    if (dragOverShowId !== show.id) {
+                      setDragOverShowId(show.id);
+                      setShows((prevShows) => {
+                        const draggedIndex = prevShows.findIndex((s) => s.id === draggedShowId);
+                        const targetIndex = prevShows.findIndex((s) => s.id === show.id);
+                        if (draggedIndex < 0 || targetIndex < 0) return prevShows;
+                        
+                        const newShows = [...prevShows];
+                        const [draggedItem] = newShows.splice(draggedIndex, 1);
+                        newShows.splice(targetIndex, 0, draggedItem);
+                        return newShows;
+                      });
+                    }
+                  }}
+                  onDragEnd={() => {
+                    setDraggedShowId(null);
+                    setDragOverShowId(null);
+                    setIsDraggableId(null);
+                  }}
+                  className={`group overflow-hidden transition-all duration-300 ${darkMode ? 'bg-gray-900/80 border-gray-700' : ''} ${draggedShowId === show.id ? 'opacity-50 scale-105 z-10' : ''}`}
+                >
                   <CardHeader className="p-0">
                     <div
                       className="relative aspect-video cursor-pointer"
@@ -376,7 +437,7 @@ export default function ScreensPage() {
                                 height: `${(element.height / 540) * 100}%`,
                                 fontSize: element.style?.fontSize ? `${(element.style.fontSize / 960) * 30}vw` : undefined,
                                 color: element.style?.color,
-                                fontFamily: element.style?.fontFamily,
+                                fontFamily: `${element.style?.fontFamily || 'Arial'}, var(--font-emoji), sans-serif`,
                                 fontWeight: element.style?.fontWeight,
                                 fontStyle: element.style?.fontStyle,
                                 textAlign: element.style?.textAlign,
@@ -446,13 +507,26 @@ export default function ScreensPage() {
                   </CardHeader>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
+                      <div 
+                        className="mr-3 mt-1 cursor-grab active:cursor-grabbing"
+                        onMouseEnter={() => setIsDraggableId(show.id)}
+                        onMouseLeave={() => setIsDraggableId(null)}
+                      >
+                        <GripVertical className={`h-5 w-5 opacity-50 hover:opacity-100 transition-opacity ${darkMode ? 'text-white' : 'text-gray-500'}`} />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <h3 className={`font-medium truncate ${darkMode ? 'text-white' : ''}`}>{show.name || 'Untitled'}</h3>
-                        <div className={`flex items-center gap-2 text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>
-                          <Clock className="h-3 w-3" />
-                          <span>{formatDuration(totalDuration)}</span>
-                          <span>•</span>
-                          <span>{slideCount} {slideCount === 1 ? 'slide' : 'slides'}</span>
+                        <div className="flex flex-col gap-2 mt-1">
+                          <div className={`flex items-center gap-2 text-xs ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>
+                            <Clock className="h-3 w-3" />
+                            <span>{formatDuration(totalDuration)}</span>
+                            <span>•</span>
+                            <span>{slideCount} {slideCount === 1 ? 'slide' : 'slides'}</span>
+                          </div>
+                          <div className={`flex flex-col gap-0.5 text-[0.65rem] ${darkMode ? 'text-gray-500' : 'text-muted-foreground/80'}`}>
+                            <span>Created {formatRelativeTime(show.created_at)}</span>
+                            <span>Last edited/presented: {formatRelativeTime(show.updated_at)}</span>
+                          </div>
                         </div>
                       </div>
                       <DropdownMenu>
@@ -495,9 +569,9 @@ export default function ScreensPage() {
                 <div className={`rounded-full p-4 mb-4 ${darkMode ? 'bg-gray-800' : 'bg-primary/10'}`}>
                   <Plus className={`h-8 w-8 ${darkMode ? 'text-white' : 'text-primary'}`} />
                 </div>
-                <h3 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>Add New Slide</h3>
+                <h3 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>Add New Project</h3>
                 <p className={`text-sm text-center ${darkMode ? 'text-gray-400' : 'text-muted-foreground'}`}>
-                  Create a new slide for your presentation
+                  Create a new project for your presentation
                 </p>
               </CardContent>
             </Card>

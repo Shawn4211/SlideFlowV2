@@ -228,7 +228,7 @@ export default function DisplayPage() {
                 height: `${(element.height / 540) * 100}%`,
                 fontSize: element.style.fontSize ? `${(element.style.fontSize / 960) * 100}vw` : undefined,
                 color: element.style.color,
-                fontFamily: element.style.fontFamily,
+                fontFamily: `${element.style.fontFamily || 'Arial'}, var(--font-emoji), sans-serif`,
                 fontWeight: element.style.fontWeight,
                 fontStyle: element.style.fontStyle,
                 textAlign: element.style.textAlign,
@@ -380,14 +380,24 @@ export default function DisplayPage() {
 
 
       {slides.length === 0 && (
-        <div className="w-full h-full flex items-center justify-center bg-gray-900">
-          <div className="text-center text-white/60">
-            <h1 className="text-4xl font-bold mb-4">No Slides</h1>
-            <p className="text-xl mb-6">Please add slides in the dashboard</p>
-            <Button onClick={() => router.push("/dashboard/screens")}>
-              Go to Dashboard
-            </Button>
-          </div>
+        <div className="w-full h-full flex flex-col items-center justify-center bg-[#10161a] absolute inset-0 z-50">
+          <svg viewBox="0 0 500 150" xmlns="http://www.w3.org/2000/svg" className="w-[300px] md:w-[500px] opacity-90 mb-6">
+            <g transform="translate(20, 20)">
+              <circle cx="80" cy="35" r="22" fill="#459cca" />
+              <path d="M 35 100 A 25 25 0 0 1 60 75 Q 80 95 100 75 A 25 25 0 0 1 125 100 A 25 25 0 0 1 100 125 Q 80 115 60 125 A 25 25 0 0 1 35 100 Z" fill="#8c9094" />
+              <path d="M 60 75 Q 80 95 100 75 Q 80 65 60 75 Z" fill="#459cca" />
+              <text x="160" y="65" fontFamily="Arial, Helvetica, sans-serif" fontSize="48" fill="#459cca" letterSpacing="2" fontWeight="500">STRATUS</text>
+              <text x="160" y="115" fontFamily="Arial, Helvetica, sans-serif" fontSize="40" fill="#8c9094" letterSpacing="4" fontWeight="400">ADV</text>
+              <line x1="260" y1="105" x2="450" y2="105" stroke="#8c9094" strokeWidth="2" />
+            </g>
+          </svg>
+          <Button 
+            className="mt-8 opacity-0 hover:opacity-100 transition-opacity absolute bottom-8 cursor-pointer z-50" 
+            variant="outline"
+            onClick={() => router.push("/dashboard/screens")}
+          >
+            Go to Dashboard
+          </Button>
         </div>
       )}
     </div>

@@ -64,7 +64,7 @@ function SlidePreview({ template, size = "small" }: { template: SlideTemplate; s
                             style={{
                                 fontSize: (el.style.fontSize || 16) * scale,
                                 color: el.style.color || "#000",
-                                fontFamily: el.style.fontFamily || "Arial",
+                                fontFamily: `${el.style.fontFamily || "Arial"}, var(--font-emoji), sans-serif`,
                                 fontWeight: el.style.fontWeight || "normal",
                                 fontStyle: el.style.fontStyle || "normal",
                                 textAlign: (el.style.textAlign as any) || "left",

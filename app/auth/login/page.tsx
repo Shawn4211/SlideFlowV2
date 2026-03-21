@@ -456,7 +456,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="lp-copyright">© {new Date().getFullYear()} SlideFlow by AnalytiQ&amp;Designers. All rights reserved.</p>
+        <p className="lp-copyright">© {new Date().getFullYear()} SlideFlow by AnalytIQ&amp;Designers. All rights reserved.</p>
       </div>
     </>
   );

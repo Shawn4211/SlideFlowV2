@@ -19,6 +19,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Type,
   Image as ImageIcon,
   Square,
@@ -50,6 +56,8 @@ import {
   Moon,
   Sun,
   Maximize2,
+  Menu,
+  LogOut,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -162,6 +170,8 @@ export default function SlideEditorPage() {
 
   const [history, setHistory] = useState<HistoryState[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showExitWarning, setShowExitWarning] = useState(false);
 
   const [isPexelsOpen, setIsPexelsOpen] = useState(false);
   const [pexelsSearch, setPexelsSearch] = useState("");
@@ -334,11 +344,14 @@ export default function SlideEditorPage() {
     localStorage.setItem("slideflow_darkmode", JSON.stringify(darkMode));
   }, [darkMode]);
 
-  const saveToHistory = useCallback((newSlides: Slide[], newIndex: number) => {
+  const saveToHistory = useCallback((newSlides: Slide[], newIndex: number, isSystemAction = false) => {
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push({ slides: JSON.parse(JSON.stringify(newSlides)), currentSlideIndex: newIndex });
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
+    if (!isSystemAction) {
+      setHasUnsavedChanges(true); // Mark as unsaved for user actions
+    }
   }, [history, historyIndex]);
 
   const undo = () => {
@@ -347,6 +360,7 @@ export default function SlideEditorPage() {
       setSlides(JSON.parse(JSON.stringify(prevState.slides)));
       setCurrentSlideIndex(prevState.currentSlideIndex);
       setHistoryIndex(historyIndex - 1);
+      setHasUnsavedChanges(true);
     }
   };
 
@@ -356,12 +370,14 @@ export default function SlideEditorPage() {
       setSlides(JSON.parse(JSON.stringify(nextState.slides)));
       setCurrentSlideIndex(nextState.currentSlideIndex);
       setHistoryIndex(historyIndex + 1);
+      setHasUnsavedChanges(true);
     }
   };
 
   useEffect(() => {
     if (history.length === 0) {
-      saveToHistory(slides, currentSlideIndex);
+      saveToHistory(slides, currentSlideIndex, true);
+      setHasUnsavedChanges(false);
     }
   }, []);
 
@@ -726,7 +742,8 @@ export default function SlideEditorPage() {
       }
 
 
-      saveToHistory(slides, currentSlideIndex);
+      saveToHistory(slides, currentSlideIndex, true);
+      setHasUnsavedChanges(false);
 
       setSaveMessage("Saved!");
       setTimeout(() => setSaveMessage(null), 2000);
@@ -827,6 +844,30 @@ export default function SlideEditorPage() {
   return (
     <TooltipProvider>
       <div className={`h-screen flex flex-col ${darkMode ? 'editor-dark' : ''}`}>
+        <Dialog open={showExitWarning} onOpenChange={setShowExitWarning}>
+          <DialogContent className={darkMode ? 'bg-gray-900 border-gray-700 text-white' : ''}>
+            <DialogHeader>
+              <DialogTitle>Unsaved Changes</DialogTitle>
+              <DialogDescription className={darkMode ? 'text-gray-400' : ''}>
+                You have unsaved changes. Do you want to save before exiting?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setShowExitWarning(false)} className={darkMode ? 'border-gray-600 text-white hover:bg-gray-800' : ''}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={() => router.push('/dashboard')}>
+                Exit Without Saving
+              </Button>
+              <Button onClick={async () => {
+                await saveSlide();
+                router.push('/dashboard');
+              }}>
+                Save & Exit
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <style jsx global>{`
           .editor-dark {
@@ -870,20 +911,28 @@ export default function SlideEditorPage() {
           : 'bg-card border-border'
           }`}>
           <div className="flex items-center gap-4">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link href="/dashboard" passHref>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`rounded-full h-10 w-10 shrink-0 ${darkMode ? 'editor-button hover:bg-[#3a4156] bg-gray-800' : 'bg-primary/10 hover:bg-primary/20'}`}
-                  >
-                    <Image src="/TeamLogo.png" alt="Exit" width={20} height={20} className="rounded-full object-cover" />
-                  </Button>
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">exit</TooltipContent>
-            </Tooltip>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className={`rounded-full h-10 w-10 shrink-0 ${darkMode ? 'editor-button hover:bg-[#3a4156] bg-gray-800' : 'bg-primary/10 hover:bg-primary/20'}`}>
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className={`w-56 ${darkMode ? 'bg-gray-900 border-gray-700' : ''}`}>
+                <DropdownMenuItem 
+                  className={`cursor-pointer ${darkMode ? 'text-white focus:bg-gray-800' : ''}`}
+                  onClick={() => {
+                    if (hasUnsavedChanges) {
+                      setShowExitWarning(true);
+                    } else {
+                      router.push('/dashboard');
+                    }
+                  }}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Exit to Dashboard</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Input
               value={slideName}
               onChange={(e) => setSlideName(e.target.value)}
@@ -1327,7 +1376,7 @@ export default function SlideEditorPage() {
                     height: `${element.height * (zoom / 100)}px`,
                     fontSize: element.style.fontSize ? `${element.style.fontSize * (zoom / 100)}px` : undefined,
                     color: element.style.color,
-                    fontFamily: element.style.fontFamily,
+                    fontFamily: `${element.style.fontFamily || 'Arial'}, var(--font-emoji), sans-serif`,
                     fontWeight: element.style.fontWeight,
                     fontStyle: element.style.fontStyle,
                     textAlign: element.style.textAlign as any,
@@ -1804,7 +1853,7 @@ export default function SlideEditorPage() {
                                     style={{
                                       fontSize: el.style.fontSize || 16,
                                       color: el.style.color || '#000',
-                                      fontFamily: el.style.fontFamily || 'Arial',
+                                      fontFamily: `${el.style.fontFamily || 'Arial'}, var(--font-emoji), sans-serif`,
                                       fontWeight: el.style.fontWeight || 'normal',
                                       fontStyle: el.style.fontStyle || 'normal',
                                       textAlign: (el.style.textAlign as any) || 'left',
@@ -1886,7 +1935,7 @@ export default function SlideEditorPage() {
                                         style={{
                                           fontSize: el.style.fontSize || 16,
                                           color: el.style.color || '#000',
-                                          fontFamily: el.style.fontFamily || 'Arial',
+                                          fontFamily: `${el.style.fontFamily || 'Arial'}, var(--font-emoji), sans-serif`,
                                           fontWeight: el.style.fontWeight || 'normal',
                                           fontStyle: el.style.fontStyle || 'normal',
                                           textAlign: (el.style.textAlign as any) || 'left',

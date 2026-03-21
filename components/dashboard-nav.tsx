@@ -21,7 +21,7 @@ const navItems = [
     icon: LayoutDashboard,
   },
   {
-    title: "Screens",
+    title: "Project",
     href: "/dashboard/screens",
     icon: Monitor,
   },

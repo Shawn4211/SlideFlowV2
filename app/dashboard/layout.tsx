@@ -51,7 +51,7 @@ export default function DashboardLayout({
       
       <aside className="w-64 border-r bg-card">
         <div className="flex h-16 items-center border-b px-6">
-          <h1 className="text-xl font-bold">SlideFlow</h1>
+          <h1 className="text-2xl font-black bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent tracking-tight">SlideFlow</h1>
         </div>
         <DashboardNav />
       </aside>
@@ -75,7 +75,7 @@ export default function DashboardLayout({
         
         <footer className="h-10 border-t bg-card flex items-center justify-center px-6">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} SlideFlow by AnalytiQ&amp;Designers. All rights reserved.
+            © {new Date().getFullYear()} SlideFlow by AnalytIQ&amp;Designers. All rights reserved.
           </p>
         </footer>
       </div>

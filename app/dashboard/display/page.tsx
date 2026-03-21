@@ -92,7 +92,7 @@ function SlidePreview({
                                 ? `${(el.style.fontSize / 960) * 100}cqw`
                                 : undefined,
                             color: el.style.color,
-                            fontFamily: el.style.fontFamily,
+                            fontFamily: `${el.style.fontFamily || 'Arial'}, var(--font-emoji), sans-serif`,
                             fontWeight: el.style.fontWeight,
                             fontStyle: el.style.fontStyle,
                             textAlign: el.style.textAlign,
@@ -145,7 +145,81 @@ function SlidePreview({
     );
 }
 
+function TimeRemaining({ date }: { date: string }) {
+    const [timeLeft, setTimeLeft] = useState("");
 
+    useEffect(() => {
+        const update = () => {
+            const now = new Date().getTime();
+            const target = new Date(date).getTime();
+            const diff = target - now;
+
+            if (diff <= 0) {
+                setTimeLeft("Ended");
+                return;
+            }
+
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            if (hours > 24) {
+                const days = Math.floor(hours / 24);
+                setTimeLeft(`Ends in ${days}d ${hours % 24}h`);
+            } else if (hours > 0) {
+                setTimeLeft(`Ends in ${hours}h ${minutes}m`);
+            } else if (minutes > 0) {
+                setTimeLeft(`Ends in ${minutes}m ${seconds}s`);
+            } else {
+                setTimeLeft(`Ends in ${seconds}s`);
+            }
+        };
+
+        update();
+        const interval = setInterval(update, 1000);
+        return () => clearInterval(interval);
+    }, [date]);
+
+    return <span>{timeLeft}</span>;
+}
+
+function TimeUntil({ date }: { date: string }) {
+    const [timeLeft, setTimeLeft] = useState("");
+
+    useEffect(() => {
+        const update = () => {
+            const now = new Date().getTime();
+            const target = new Date(date).getTime();
+            const diff = target - now;
+
+            if (diff <= 0) {
+                setTimeLeft("Starting soon");
+                return;
+            }
+
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            if (hours > 24) {
+                const days = Math.floor(hours / 24);
+                setTimeLeft(`in ${days}d ${hours % 24}h`);
+            } else if (hours > 0) {
+                setTimeLeft(`in ${hours}h ${minutes}m`);
+            } else if (minutes > 0) {
+                setTimeLeft(`in ${minutes}m ${seconds}s`);
+            } else {
+                setTimeLeft(`in ${seconds}s`);
+            }
+        };
+
+        update();
+        const interval = setInterval(update, 1000);
+        return () => clearInterval(interval);
+    }, [date]);
+
+    return <span>{timeLeft}</span>;
+}
 
 function CyclingSlidePreview({
     slides,
@@ -155,14 +229,27 @@ function CyclingSlidePreview({
     className?: string;
 }) {
     const [index, setIndex] = useState(0);
+    const [timeLeft, setTimeLeft] = useState(0);
 
     useEffect(() => {
+        if (slides.length === 0) return;
+        
+        const duration = slides[index]?.duration ?? 10;
+        setTimeLeft(duration);
+
         if (slides.length <= 1) return;
-        const duration = (slides[index]?.duration ?? 10) * 1000;
-        const timer = setTimeout(() => {
-            setIndex((prev) => (prev + 1) % slides.length);
-        }, duration);
-        return () => clearTimeout(timer);
+
+        const interval = setInterval(() => {
+            setTimeLeft((prev) => {
+                if (prev <= 1) {
+                    setIndex((currIndex) => (currIndex + 1) % slides.length);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
     }, [index, slides]);
 
     if (slides.length === 0) return null;
@@ -171,9 +258,9 @@ function CyclingSlidePreview({
     return (
         <div>
             <SlidePreview slide={slide} className={className} />
-            {slides.length > 1 && (
-                <div className="flex items-center justify-center gap-1.5 mt-3">
-                    {slides.map((_, i) => (
+            <div className="flex items-center justify-between mt-3 px-2">
+                <div className="flex items-center gap-1.5">
+                    {slides.length > 1 ? slides.map((_, i) => (
                         <button
                             key={i}
                             onClick={() => setIndex(i)}
@@ -182,9 +269,12 @@ function CyclingSlidePreview({
                                 : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"
                                 }`}
                         />
-                    ))}
+                    )) : null}
                 </div>
-            )}
+                <div className="text-xs text-muted-foreground font-medium bg-muted px-2 py-1 rounded">
+                    {slides.length > 1 ? `${timeLeft}s left` : `${slide.duration ?? 10}s duration`}
+                </div>
+            </div>
         </div>
     );
 }
@@ -327,11 +417,16 @@ export default function DisplayDashboardPage() {
                                             </p>
                                         </div>
                                         {currentShow.start_time && currentShow.finish_time && (
-                                            <div className="text-right text-xs text-muted-foreground">
-                                                <div className="flex items-center gap-1">
-                                                    <Clock className="h-3 w-3" />
-                                                    {formatDateTime(currentShow.start_time)} –{" "}
-                                                    {formatDateTime(currentShow.finish_time)}
+                                            <div className="flex flex-col items-end gap-1">
+                                                <div className="text-right text-xs text-muted-foreground">
+                                                    <div className="flex items-center gap-1">
+                                                        <Clock className="h-3 w-3" />
+                                                        {formatDateTime(currentShow.start_time)} –{" "}
+                                                        {formatDateTime(currentShow.finish_time)}
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded">
+                                                    <TimeRemaining date={currentShow.finish_time} />
                                                 </div>
                                             </div>
                                         )}
@@ -409,7 +504,9 @@ export default function DisplayDashboardPage() {
                                                 {show.start_time && (
                                                     <div className="flex items-center gap-1.5 text-xs p-2 bg-blue-50 text-blue-700 rounded-md dark:bg-blue-950 dark:text-blue-300">
                                                         <Clock className="h-3 w-3" />
-                                                        Starts {formatDateTime(show.start_time)}
+                                                        <span>Starts {formatDateTime(show.start_time)}</span>
+                                                        <span>•</span>
+                                                        <span className="font-semibold"><TimeUntil date={show.start_time} /></span>
                                                     </div>
                                                 )}
                                             </div>
@@ -421,7 +518,7 @@ export default function DisplayDashboardPage() {
                                     <div className="rounded-full bg-muted p-4 mb-3">
                                         <CalendarClock className="h-8 w-8 text-muted-foreground/50" />
                                     </div>
-                                    <h3 className="font-semibold mb-1">No Upcoming Shows</h3>
+                                    <h3 className="font-semibold mb-1">No Upcoming Slides</h3>
                                     <p className="text-xs text-muted-foreground max-w-[200px]">
                                         Schedule content on the{" "}
                                         <Link

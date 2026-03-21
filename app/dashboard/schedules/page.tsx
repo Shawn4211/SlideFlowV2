@@ -5,6 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Calendar,
   Plus,
   Clock,
@@ -86,6 +94,12 @@ export default function SchedulesPage() {
   const [formStart, setFormStart] = useState("");
   const [formFinish, setFormFinish] = useState("");
   const [formError, setFormError] = useState("");
+  
+  const [conflictWarning, setConflictWarning] = useState<{
+    showName: string;
+    conflictingId: number | "manual";
+    actionToTake: "delete_schedule" | "stop_manual";
+  } | null>(null);
 
   const fetchShows = async () => {
     setLoading(true);
@@ -180,6 +194,25 @@ export default function SchedulesPage() {
       return;
     }
 
+    let manualPresent = null;
+    try {
+      const activeRes = await fetch("/api/shows/active");
+      const activeData = await activeRes.json();
+      manualPresent = activeData.manualPresent;
+    } catch (e) {
+      console.error(e);
+    }
+
+    const now = new Date();
+    if (manualPresent && startDate <= now) {
+      setConflictWarning({
+         showName: manualPresent.show_name || "Manual Present",
+         conflictingId: "manual",
+         actionToTake: "stop_manual"
+      });
+      return;
+    }
+
     // Validate: no overlapping schedules with existing shows
     const overlapping = shows.find((s) => {
       // Skip the show we're currently editing
@@ -195,11 +228,18 @@ export default function SchedulesPage() {
     });
 
     if (overlapping) {
-      setFormError(
-        `This time overlaps with "${overlapping.name}" (${formatDateTime(overlapping.start_time!)} – ${formatDateTime(overlapping.finish_time!)}). Please choose a different time.`
-      );
+      setConflictWarning({
+         showName: overlapping.name,
+         conflictingId: overlapping.id,
+         actionToTake: "delete_schedule"
+      });
       return;
     }
+
+    await finalizeSave(isoStart, isoFinish);
+  };
+
+  const finalizeSave = async (isoStart: string, isoFinish: string) => {
 
     if (formExistingShowId) {
       try {
@@ -250,6 +290,25 @@ export default function SchedulesPage() {
     } catch (err) {
       console.error("Failed to save show:", err);
     }
+  };
+
+  const handleResolveConflict = async () => {
+    if (!conflictWarning) return;
+    
+    if (conflictWarning.actionToTake === "stop_manual") {
+      await fetch("/api/shows/present", { method: "DELETE" });
+    } else if (conflictWarning.actionToTake === "delete_schedule" && typeof conflictWarning.conflictingId === "number") {
+      await fetch("/api/shows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: conflictWarning.conflictingId, startTime: null, finishTime: null }),
+      });
+    }
+    
+    setConflictWarning(null);
+    const isoStart = toISOFromLocal(formStart);
+    const isoFinish = toISOFromLocal(formFinish);
+    await finalizeSave(isoStart, isoFinish);
   };
 
   const handleDelete = async (id: number) => {
@@ -486,6 +545,33 @@ export default function SchedulesPage() {
           </Card>
         )
       }
+
+      <Dialog open={!!conflictWarning} onOpenChange={(open) => { if (!open) setConflictWarning(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule Conflict Detected</DialogTitle>
+            <DialogDescription>
+              There is an active or scheduled show during this time: <strong className="text-foreground">{conflictWarning?.showName}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <p className="text-sm text-muted-foreground">
+              Would you like to stop this conflicting show so your new schedule can play, or do you want to change your scheduled dates?
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:space-x-2">
+            <Button variant="outline" onClick={() => setConflictWarning(null)}>
+              Change Date
+            </Button>
+            <Button variant="secondary" onClick={() => setConflictWarning(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleResolveConflict}>
+              Stop Show & Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div >
   );
 }
