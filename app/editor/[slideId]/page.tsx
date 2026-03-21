@@ -1257,8 +1257,8 @@ export default function SlideEditorPage() {
                         onClick={() => setCurrentSlideIndex(index)}
                       >
 
-                        <div className="absolute inset-0" style={{ transform: `scale(${slidePreviewScale})`, transformOrigin: "top left" }}>
-                          <div className="relative w-[960px] h-[540px]">
+                        <div className="absolute top-1/2 left-1/2" style={{ transform: `translate(-50%, -50%) scale(${slidePreviewScale})`, transformOrigin: "center" }}>
+                          <div className="relative w-[960px] h-[540px] overflow-hidden">
                             {slide.backgroundImage && (
                               <img
                                 src={slide.backgroundImage}
