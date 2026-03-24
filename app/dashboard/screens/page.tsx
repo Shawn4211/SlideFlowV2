@@ -71,6 +71,7 @@ export default function ScreensPage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [newSlideName, setNewSlideName] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [nameError, setNameError] = useState("");
   const [isPresentDialogOpen, setIsPresentDialogOpen] = useState(false);
   const [presentSearch, setPresentSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -113,10 +114,20 @@ export default function ScreensPage() {
   const handleAddSlide = () => {
     if (!newSlideName.trim()) return;
 
+    // Check for duplicate project name (case-insensitive)
+    const duplicate = shows.find(
+      (s) => (s.name || "").toLowerCase().trim() === newSlideName.toLowerCase().trim()
+    );
+    if (duplicate) {
+      setNameError(`A project named "${duplicate.name}" already exists. Please choose a different name.`);
+      return;
+    }
+
     const tempId = Math.random().toString(36).substr(2, 9);
 
     localStorage.setItem("slideflow_new_show_name", newSlideName);
 
+    setNameError("");
     setNewSlideName("");
     setIsDialogOpen(false);
 
@@ -327,7 +338,7 @@ export default function ScreensPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) { setNameError(""); setNewSlideName(""); } }}>
               <DialogTrigger asChild>
                 <Button className={darkMode ? 'bg-gray-700 hover:bg-gray-600' : ''}>
                   <Plus className="mr-2 h-4 w-4" />
@@ -348,18 +359,21 @@ export default function ScreensPage() {
                   <Input
                     placeholder="Enter project name..."
                     value={newSlideName}
-                    onChange={(e) => setNewSlideName(e.target.value)}
+                    onChange={(e) => { setNewSlideName(e.target.value); setNameError(""); }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleAddSlide();
                     }}
-                    className={darkMode ? 'bg-gray-800 border-gray-700 text-white' : ''}
+                    className={`${darkMode ? 'bg-gray-800 border-gray-700 text-white' : ''} ${nameError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
                   />
+                  {nameError && (
+                    <p className="text-sm text-red-500 mt-1">{nameError}</p>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsDialogOpen(false)} className={darkMode ? 'border-gray-600 text-white hover:bg-gray-800' : ''}>
                     Cancel
                   </Button>
-                  <Button onClick={handleAddSlide} disabled={!newSlideName.trim()}>
+                  <Button onClick={handleAddSlide} disabled={!newSlideName.trim() || !!nameError}>
                     Create & Edit
                   </Button>
                 </DialogFooter>

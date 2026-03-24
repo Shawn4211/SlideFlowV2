@@ -1714,6 +1714,25 @@ export default function SlideEditorPage() {
                           className={`flex-1 h-8 text-xs ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : ''}`}
                         />
                       </div>
+                      <div className="flex gap-2 mt-2 pt-1 border-t border-border/50">
+                        {["#459cca", "#8c9094", "#2b333a"].map((presetColor) => (
+                          <button
+                            key={presetColor}
+                            title={`Brand Preset: ${presetColor}`}
+                            onClick={() => {
+                              const newSlides = [...slides];
+                              newSlides[currentSlideIndex].backgroundColor = presetColor;
+                              newSlides[currentSlideIndex].backgroundImage = undefined;
+                              setSlides(newSlides);
+                              saveToHistory(newSlides, currentSlideIndex);
+                            }}
+                            className={`w-6 h-6 rounded-full border shadow-sm cursor-pointer transition-transform hover:scale-110 ${
+                              darkMode ? 'border-gray-500 hover:border-white' : 'border-gray-300 hover:border-gray-500'
+                            }`}
+                            style={{ backgroundColor: presetColor }}
+                          />
+                        ))}
+                      </div>
                     </div>
 
 
