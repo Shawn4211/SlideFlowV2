@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
 export default function IntroPage() {
-  const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [phase, setPhase] = useState<"writing" | "glow" | "fadeout">("writing");
+  // Unique key forces CSS animations to replay every time the component mounts
+  const [animKey] = useState(() => Date.now());
 
   // Particle background (same as login)
   useEffect(() => {
@@ -84,25 +84,40 @@ export default function IntroPage() {
     };
   }, []);
 
-  // Animation timeline
+  // Animation timeline — use window.location for a full navigation (not client-side)
   useEffect(() => {
-    // Writing phase: 1.4s, then glow immediately, then fade out, then redirect
     const glowTimer = setTimeout(() => setPhase("glow"), 1400);
     const fadeTimer = setTimeout(() => setPhase("fadeout"), 2000);
-    const navTimer = setTimeout(() => router.push("/auth/login"), 2700);
+    const navTimer = setTimeout(() => {
+      // Full page navigation ensures the intro replays on every visit
+      window.location.href = "/auth/login";
+    }, 2700);
 
     return () => {
       clearTimeout(glowTimer);
       clearTimeout(fadeTimer);
       clearTimeout(navTimer);
     };
-  }, [router]);
+  }, []);
 
   return (
     <>
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap');
+      {/* Preload the Google Font via <link> in <head> for Vercel compatibility */}
+      <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+      />
+      <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossOrigin="anonymous"
+      />
+      <link
+        href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap"
+        rel="stylesheet"
+      />
 
+      <style jsx global>{`
         body { margin: 0; padding: 0; overflow: hidden; }
 
         .intro-wrap {
@@ -187,8 +202,6 @@ export default function IntroPage() {
           50% { filter: drop-shadow(0 0 40px rgba(69, 156, 202, 0.8)) drop-shadow(0 0 80px rgba(69, 156, 202, 0.4)); }
           100% { filter: drop-shadow(0 0 20px rgba(69, 156, 202, 0.3)); }
         }
-
-
       `}</style>
 
       <div className="intro-wrap">
@@ -196,6 +209,7 @@ export default function IntroPage() {
 
         <div className={`intro-center ${phase === "fadeout" ? "fadeout" : ""}`}>
           <svg
+            key={animKey}
             className={`intro-svg-text ${phase === "glow" || phase === "fadeout" ? "intro-glow active" : ""}`}
             viewBox="0 0 950 220"
             width="950"
@@ -235,11 +249,7 @@ export default function IntroPage() {
               SlideFlow
             </text>
           </svg>
-
-
         </div>
-
-
       </div>
     </>
   );
