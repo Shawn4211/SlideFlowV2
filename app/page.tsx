@@ -12,6 +12,7 @@ const dancingScript = Dancing_Script({
 export default function IntroPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [phase, setPhase] = useState<"waiting" | "writing" | "glow" | "fadeout">("waiting");
+  const timersStarted = useRef(false);
 
   // Particle background (same as login)
   useEffect(() => {
@@ -89,35 +90,27 @@ export default function IntroPage() {
     };
   }, []);
 
-  // Wait for the font to actually be rendered, then start animations
+  // Wait for the font to load, then kick off the full animation sequence
   useEffect(() => {
-    // document.fonts.ready resolves when all fonts are loaded
-    document.fonts.ready.then(() => {
+    const startAnimation = () => {
+      if (timersStarted.current) return;
+      timersStarted.current = true;
+
       setPhase("writing");
-    });
-    // Fallback: start anyway after 500ms in case fonts API isn't available
-    const fallback = setTimeout(() => {
-      setPhase((prev) => (prev === "waiting" ? "writing" : prev));
-    }, 500);
+
+      // All timers fire from this single point — no cleanup issues
+      setTimeout(() => setPhase("glow"), 1400);
+      setTimeout(() => setPhase("fadeout"), 2000);
+      setTimeout(() => {
+        window.location.href = "/auth/login";
+      }, 2700);
+    };
+
+    document.fonts.ready.then(startAnimation);
+    // Fallback: start anyway after 500ms
+    const fallback = setTimeout(startAnimation, 500);
     return () => clearTimeout(fallback);
   }, []);
-
-  // Animation timeline — only starts once phase becomes "writing"
-  useEffect(() => {
-    if (phase !== "writing") return;
-
-    const glowTimer = setTimeout(() => setPhase("glow"), 1400);
-    const fadeTimer = setTimeout(() => setPhase("fadeout"), 2000);
-    const navTimer = setTimeout(() => {
-      window.location.href = "/auth/login";
-    }, 2700);
-
-    return () => {
-      clearTimeout(glowTimer);
-      clearTimeout(fadeTimer);
-      clearTimeout(navTimer);
-    };
-  }, [phase]);
 
   // The font family name from next/font
   const fontFamily = dancingScript.style.fontFamily;
