@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Dancing_Script } from "next/font/google";
+
+const dancingScript = Dancing_Script({
+  weight: "700",
+  subsets: ["latin"],
+  display: "block", // "block" = invisible text until font loads (no FOUC)
+});
 
 export default function IntroPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [phase, setPhase] = useState<"writing" | "glow" | "fadeout">("writing");
-  // Unique key forces CSS animations to replay every time the component mounts
-  const [animKey] = useState(() => Date.now());
+  const [phase, setPhase] = useState<"waiting" | "writing" | "glow" | "fadeout">("waiting");
 
   // Particle background (same as login)
   useEffect(() => {
@@ -84,12 +89,26 @@ export default function IntroPage() {
     };
   }, []);
 
-  // Animation timeline — use window.location for a full navigation (not client-side)
+  // Wait for the font to actually be rendered, then start animations
   useEffect(() => {
+    // document.fonts.ready resolves when all fonts are loaded
+    document.fonts.ready.then(() => {
+      setPhase("writing");
+    });
+    // Fallback: start anyway after 500ms in case fonts API isn't available
+    const fallback = setTimeout(() => {
+      setPhase((prev) => (prev === "waiting" ? "writing" : prev));
+    }, 500);
+    return () => clearTimeout(fallback);
+  }, []);
+
+  // Animation timeline — only starts once phase becomes "writing"
+  useEffect(() => {
+    if (phase !== "writing") return;
+
     const glowTimer = setTimeout(() => setPhase("glow"), 1400);
     const fadeTimer = setTimeout(() => setPhase("fadeout"), 2000);
     const navTimer = setTimeout(() => {
-      // Full page navigation ensures the intro replays on every visit
       window.location.href = "/auth/login";
     }, 2700);
 
@@ -98,25 +117,13 @@ export default function IntroPage() {
       clearTimeout(fadeTimer);
       clearTimeout(navTimer);
     };
-  }, []);
+  }, [phase]);
+
+  // The font family name from next/font
+  const fontFamily = dancingScript.style.fontFamily;
 
   return (
     <>
-      {/* Preload the Google Font via <link> in <head> for Vercel compatibility */}
-      <link
-        rel="preconnect"
-        href="https://fonts.googleapis.com"
-      />
-      <link
-        rel="preconnect"
-        href="https://fonts.gstatic.com"
-        crossOrigin="anonymous"
-      />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap"
-        rel="stylesheet"
-      />
-
       <style jsx global>{`
         body { margin: 0; padding: 0; overflow: hidden; }
 
@@ -151,7 +158,6 @@ export default function IntroPage() {
           transition: opacity 0.7s ease-out, transform 0.7s ease-out;
         }
 
-        /* SVG cursive writing animation */
         .intro-svg-text {
           overflow: visible;
         }
@@ -173,9 +179,7 @@ export default function IntroPage() {
           }
         }
 
-        /* Fill fade-in after stroke completes */
         .intro-fill-text {
-          font-family: 'Dancing Script', cursive;
           font-size: 154px;
           font-weight: 700;
           fill: transparent;
@@ -188,7 +192,6 @@ export default function IntroPage() {
           }
         }
 
-        /* Glow pulse */
         .intro-glow {
           opacity: 0;
           transition: opacity 0.6s ease;
@@ -207,49 +210,50 @@ export default function IntroPage() {
       <div className="intro-wrap">
         <canvas ref={canvasRef} className="intro-canvas" />
 
-        <div className={`intro-center ${phase === "fadeout" ? "fadeout" : ""}`}>
-          <svg
-            key={animKey}
-            className={`intro-svg-text ${phase === "glow" || phase === "fadeout" ? "intro-glow active" : ""}`}
-            viewBox="0 0 950 220"
-            width="950"
-            height="220"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <defs>
-              <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#459cca" />
-                <stop offset="50%" stopColor="#ffffff" />
-                <stop offset="100%" stopColor="#459cca" />
-              </linearGradient>
-            </defs>
-
-            {/* Invisible text to get the path shape */}
-            <text
-              className="intro-fill-text"
-              x="50%"
-              y="155"
-              textAnchor="middle"
-              dominantBaseline="auto"
+        {/* Only render SVG once font is loaded and phase is past "waiting" */}
+        {phase !== "waiting" && (
+          <div className={`intro-center ${phase === "fadeout" ? "fadeout" : ""}`}>
+            <svg
+              className={`intro-svg-text ${phase === "glow" || phase === "fadeout" ? "intro-glow active" : ""}`}
+              viewBox="0 0 950 220"
+              width="950"
+              height="220"
+              xmlns="http://www.w3.org/2000/svg"
             >
-              SlideFlow
-            </text>
+              <defs>
+                <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#459cca" />
+                  <stop offset="50%" stopColor="#ffffff" />
+                  <stop offset="100%" stopColor="#459cca" />
+                </linearGradient>
+              </defs>
 
-            {/* Stroke-animated path tracing the cursive text */}
-            <text
-              x="50%"
-              y="155"
-              textAnchor="middle"
-              dominantBaseline="auto"
-              fontFamily="'Dancing Script', cursive"
-              fontSize="154"
-              fontWeight="700"
-              className="intro-path"
-            >
-              SlideFlow
-            </text>
-          </svg>
-        </div>
+              <text
+                className="intro-fill-text"
+                x="50%"
+                y="155"
+                textAnchor="middle"
+                dominantBaseline="auto"
+                style={{ fontFamily }}
+              >
+                SlideFlow
+              </text>
+
+              <text
+                x="50%"
+                y="155"
+                textAnchor="middle"
+                dominantBaseline="auto"
+                fontSize="154"
+                fontWeight="700"
+                className="intro-path"
+                style={{ fontFamily }}
+              >
+                SlideFlow
+              </text>
+            </svg>
+          </div>
+        )}
       </div>
     </>
   );
