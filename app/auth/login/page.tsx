@@ -4,6 +4,13 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { User, Lock, Eye, EyeOff } from "lucide-react";
+import { Dancing_Script } from "next/font/google";
+
+const dancingScript = Dancing_Script({
+  weight: "700",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 interface Particle {
   x: number;
@@ -225,10 +232,9 @@ export default function LoginPage() {
 
         
         .lp-brand {
-          font-family: 'Outfit', sans-serif;
-          font-weight: 900;
-          font-size: 3.4rem;
-          letter-spacing: -0.03em;
+          font-weight: 700;
+          font-size: 3.8rem;
+          letter-spacing: 0.01em;
           color: #fff;
           text-align: center;
           margin: 0 0 2rem;
@@ -423,7 +429,7 @@ export default function LoginPage() {
         <canvas ref={canvasRef} className="lp-canvas" />
 
         <div className="lp-content">
-          <h1 className="lp-brand">SlideFlow</h1>
+          <h1 className={`lp-brand ${dancingScript.className}`}>SlideFlow</h1>
 
           <div className="lp-card">
             <h2 className="lp-title">Login</h2>
