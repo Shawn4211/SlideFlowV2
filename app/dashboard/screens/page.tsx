@@ -434,7 +434,12 @@ export default function ScreensPage() {
                   <CardHeader className="p-0">
                     <div
                       className="relative aspect-video cursor-pointer"
-                      style={{ backgroundColor: previewSlide?.backgroundColor || (darkMode ? '#0a0a0a' : '#ffffff') }}
+                      style={{ 
+                        backgroundColor: previewSlide?.backgroundColor || (darkMode ? '#0a0a0a' : '#ffffff'),
+                        backgroundImage: previewSlide?.backgroundImage ? `url(${previewSlide.backgroundImage})` : undefined,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center"
+                      }}
                       onClick={() => handleEditSlide(show)}
                     >
 
@@ -470,9 +475,20 @@ export default function ScreensPage() {
                                   {element.content}
                                 </span>
                               )}
-                              {element.type === "image" && element.src && (
-                                <img src={element.src} alt="" className="w-full h-full object-cover" />
-                              )}
+                              {element.type === "image" && element.src && (() => {
+                                const cropCSS: React.CSSProperties = {};
+                                if (element.cropShape === "circle" || element.cropShape === "oval") cropCSS.borderRadius = "50%";
+                                else if (element.cropShape === "rounded") cropCSS.borderRadius = "12%";
+                                else if (element.cropShape === "diamond") cropCSS.clipPath = "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)";
+                                else if (element.cropShape === "star") cropCSS.clipPath = "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)";
+                                else if (element.cropShape === "hexagon") cropCSS.clipPath = "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)";
+                                else if (element.cropShape === "pentagon") cropCSS.clipPath = "polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)";
+                                return (
+                                  <div className="w-full h-full overflow-hidden" style={cropCSS}>
+                                    <img src={element.src} alt="" className="w-full h-full object-cover" />
+                                  </div>
+                                );
+                              })()}
                               {element.type === "video" && (
                                 <div className="w-full h-full bg-gray-800 flex items-center justify-center">
                                   <Video className="w-4 h-4 text-white" />

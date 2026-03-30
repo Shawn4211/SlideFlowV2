@@ -15,6 +15,7 @@ interface SlideElement {
   height: number;
   content?: string;
   src?: string;
+  cropShape?: string;
   style: {
     fontSize?: number;
     color?: string;
@@ -29,11 +30,27 @@ interface SlideElement {
   };
 }
 
+const CROP_STYLES: Record<string, React.CSSProperties> = {
+  circle: { borderRadius: "50%" },
+  oval: { borderRadius: "50%" },
+  rounded: { borderRadius: "12%" },
+  diamond: { clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" },
+  star: { clipPath: "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)" },
+  hexagon: { clipPath: "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)" },
+  pentagon: { clipPath: "polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)" },
+};
+
+function getCropStyle(cropShape?: string): React.CSSProperties {
+  if (!cropShape || cropShape === "none") return {};
+  return CROP_STYLES[cropShape] || {};
+}
+
 interface Slide {
   id: string;
   name: string;
   elements: SlideElement[];
   backgroundColor: string;
+  backgroundImage?: string;
   duration: number;
 }
 
@@ -215,7 +232,13 @@ export default function DisplayPage() {
       {currentSlide ? (
         <div
           className="w-full h-full relative"
-          style={{ backgroundColor: currentSlide.backgroundColor }}
+          style={{ 
+            backgroundColor: currentSlide.backgroundColor,
+            backgroundImage: currentSlide.backgroundImage ? `url(${currentSlide.backgroundImage})` : undefined,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat"
+          }}
         >
           {currentSlide.elements.map((element) => (
             <div
@@ -247,11 +270,13 @@ export default function DisplayPage() {
                 </span>
               )}
               {element.type === "image" && element.src && (
-                <img
-                  src={element.src}
-                  alt=""
-                  className="w-full h-full object-contain"
-                />
+                <div className="w-full h-full overflow-hidden" style={getCropStyle(element.cropShape)}>
+                  <img
+                    src={element.src}
+                    alt=""
+                    className="w-full h-full object-contain"
+                  />
+                </div>
               )}
               {element.type === "video" && element.src && (
                 <video

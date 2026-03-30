@@ -58,6 +58,17 @@ import {
   Maximize2,
   Menu,
   LogOut,
+  Crop,
+  RefreshCw,
+  Diamond,
+  Star,
+  Hexagon,
+  Pentagon,
+  RectangleHorizontal,
+  X,
+  HardDrive,
+  FolderOpen,
+  ImageIcon as ImageLucide,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -72,6 +83,7 @@ interface SlideElement {
   height: number;
   content?: string;
   src?: string;
+  cropShape?: string;
   style: {
     fontSize?: number;
     color?: string;
@@ -125,11 +137,29 @@ const DARK_TEXT = "#ffffff"; // Pure white for maximum visibility
 const DARK_TEXT_MUTED = "#d1d5db"; // Light gray for secondary text
 const ACCENT_COLOR = "#60a5fa"; // Brighter blue accent
 
+const CROP_SHAPES: { id: string; label: string; icon: string; css: React.CSSProperties }[] = [
+  { id: "none", label: "None", icon: "□", css: {} },
+  { id: "circle", label: "Circle", icon: "○", css: { borderRadius: "50%" } },
+  { id: "oval", label: "Oval", icon: "⬮", css: { borderRadius: "50%" } },
+  { id: "rounded", label: "Rounded", icon: "▢", css: { borderRadius: "12%" } },
+  { id: "diamond", label: "Diamond", icon: "◇", css: { clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" } },
+  { id: "star", label: "Star", icon: "☆", css: { clipPath: "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)" } },
+  { id: "hexagon", label: "Hexagon", icon: "⬡", css: { clipPath: "polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)" } },
+  { id: "pentagon", label: "Pentagon", icon: "⬠", css: { clipPath: "polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)" } },
+];
+
+function getCropStyle(cropShape?: string): React.CSSProperties {
+  if (!cropShape || cropShape === "none") return {};
+  const shape = CROP_SHAPES.find((s) => s.id === cropShape);
+  return shape?.css || {};
+}
+
 export default function SlideEditorPage() {
   const params = useParams();
   const router = useRouter();
   const canvasRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const replaceFileInputRef = useRef<HTMLInputElement>(null);
   const [selectedTool, setSelectedTool] = useState("select");
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -182,6 +212,14 @@ export default function SlideEditorPage() {
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [templateSearch, setTemplateSearch] = useState("");
   const [templatePreview, setTemplatePreview] = useState<SlideTemplate | null>(null);
+
+  const [imageContextMenu, setImageContextMenu] = useState<{ elementId: string; x: number; y: number } | null>(null);
+  const [showCropSubmenu, setShowCropSubmenu] = useState(false);
+  const [showReplaceSubmenu, setShowReplaceSubmenu] = useState(false);
+  const [replaceTargetId, setReplaceTargetId] = useState<string | null>(null);
+  const [isContentPickerOpen, setIsContentPickerOpen] = useState(false);
+  const [contentAssets, setContentAssets] = useState<any[]>([]);
+  const [isContentLoading, setIsContentLoading] = useState(false);
 
   const currentSlide = slides[currentSlideIndex];
 
@@ -457,6 +495,62 @@ export default function SlideEditorPage() {
     setSelectedElement(newElement.id);
   };
 
+  const replaceImage = (elementId: string, newSrc: string) => {
+    const newSlides = [...slides];
+    const element = newSlides[currentSlideIndex].elements.find((e) => e.id === elementId);
+    if (element && (element.type === "image" || element.type === "video")) {
+      element.src = newSrc;
+      setSlides(newSlides);
+      saveToHistory(newSlides, currentSlideIndex);
+    }
+    setReplaceTargetId(null);
+  };
+
+  const applyCropShape = (elementId: string, shapeId: string) => {
+    const newSlides = [...slides];
+    const element = newSlides[currentSlideIndex].elements.find((e) => e.id === elementId);
+    if (element) {
+      element.cropShape = shapeId === "none" ? undefined : shapeId;
+      setSlides(newSlides);
+      saveToHistory(newSlides, currentSlideIndex);
+    }
+    setImageContextMenu(null);
+    setShowCropSubmenu(false);
+  };
+
+  const handleReplaceFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && replaceTargetId) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const src = event.target?.result as string;
+        replaceImage(replaceTargetId, src);
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset input so the same file can be selected again
+    if (replaceFileInputRef.current) {
+      replaceFileInputRef.current.value = "";
+    }
+  };
+
+  const fetchContentAssets = async () => {
+    setIsContentLoading(true);
+    try {
+      const response = await fetch("/api/content/assets?");
+      const data = await response.json();
+      // Filter only image assets
+      const images = (data.assets || []).filter((a: any) =>
+        a.type?.startsWith("image") || a.file_url?.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i)
+      );
+      setContentAssets(images);
+    } catch (err) {
+      console.error("Error fetching content assets:", err);
+      setContentAssets([]);
+    }
+    setIsContentLoading(false);
+  };
+
   const searchPexels = async (query: string = pexelsSearch) => {
     const searchTerm = query.trim() || "nature";
     setIsPexelsLoading(true);
@@ -584,6 +678,48 @@ export default function SlideEditorPage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedElement, historyIndex, history]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) {
+      // Remove hash cleanly if it was added, without a pop
+      if (window.location.hash === "#editing") {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
+      return;
+    }
+
+    // Add #editing hash when there are unsaved changes
+    if (window.location.hash !== "#editing") {
+      window.history.pushState(null, "", window.location.pathname + window.location.search + "#editing");
+    }
+
+    const handlePopState = (e: PopStateEvent) => {
+      // If the back button is pressed, the hash is removed
+      if (window.location.hash !== "#editing") {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        
+        setShowExitWarning(true);
+        // Put the state back to intercept again
+        window.history.pushState(null, "", window.location.pathname + window.location.search + "#editing");
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState, { capture: true });
+    return () => window.removeEventListener("popstate", handlePopState, { capture: true });
+  }, [hasUnsavedChanges]);
 
   const handleMouseDown = (e: React.MouseEvent, elementId: string) => {
 
@@ -1289,7 +1425,9 @@ export default function SlideEditorPage() {
                                   </div>
                                 )}
                                 {element.type === "image" && element.src && (
-                                  <img src={element.src} alt="" className="w-full h-full object-cover" />
+                                  <div className="w-full h-full overflow-hidden" style={getCropStyle(element.cropShape)}>
+                                    <img src={element.src} alt="" className="w-full h-full object-cover" />
+                                  </div>
                                 )}
                                 {element.type === "video" && (
                                   <div className="w-full h-full bg-gray-800 flex items-center justify-center">
@@ -1356,7 +1494,7 @@ export default function SlideEditorPage() {
                 height: `${540 * (zoom / 100)}px`,
                 backgroundColor: currentSlide.backgroundColor,
               }}
-              onClick={() => { setSelectedElement(null); setEditingTextId(null); setShowShapesMenu(false); }}
+              onClick={() => { setSelectedElement(null); setEditingTextId(null); setShowShapesMenu(false); setImageContextMenu(null); setShowCropSubmenu(false); setShowReplaceSubmenu(false); }}
             >
               {currentSlide.backgroundImage && (
                 <img
@@ -1392,7 +1530,23 @@ export default function SlideEditorPage() {
                     cursor: isDragging ? 'grabbing' : 'grab',
                   }}
                   onMouseDown={(e) => handleMouseDown(e, element.id)}
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (element.type === "image" && selectedElement === element.id && !isDragging) {
+                      const rect = canvasRef.current?.getBoundingClientRect();
+                      if (rect) {
+                        setImageContextMenu({
+                          elementId: element.id,
+                          x: e.clientX - rect.left,
+                          y: e.clientY - rect.top,
+                        });
+                        setShowCropSubmenu(false);
+                      }
+                    } else {
+                      setImageContextMenu(null);
+                      setShowCropSubmenu(false);
+                    }
+                  }}
                 >
                   {element.type === "text" && (
                     <div
@@ -1429,12 +1583,14 @@ export default function SlideEditorPage() {
                     </div>
                   )}
                   {element.type === "image" && element.src && (
-                    <img
-                      src={element.src}
-                      alt=""
-                      className="w-full h-full object-cover pointer-events-none"
-                      draggable={false}
-                    />
+                    <div className="w-full h-full overflow-hidden" style={getCropStyle(element.cropShape)}>
+                      <img
+                        src={element.src}
+                        alt=""
+                        className="w-full h-full object-cover pointer-events-none"
+                        draggable={false}
+                      />
+                    </div>
                   )}
                   {element.type === "video" && element.src && (
                     <video
@@ -1453,6 +1609,143 @@ export default function SlideEditorPage() {
                   )}
                 </div>
               ))}
+              {/* Hidden file input for replacing image from computer */}
+              <input
+                type="file"
+                ref={replaceFileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleReplaceFileUpload}
+              />
+              {/* Image Context Menu */}
+              {imageContextMenu && (
+                <div
+                  className="absolute z-50"
+                  style={{
+                    left: imageContextMenu.x,
+                    top: imageContextMenu.y,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className={`rounded-xl shadow-2xl border backdrop-blur-sm min-w-[200px] overflow-hidden ${
+                    darkMode
+                      ? 'bg-gray-900/95 border-gray-700'
+                      : 'bg-white/95 border-gray-200'
+                  }`}>
+                    {/* Replace Button with submenu */}
+                    <button
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${
+                        darkMode
+                          ? 'text-white hover:bg-gray-800'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                      onClick={() => { setShowReplaceSubmenu(!showReplaceSubmenu); setShowCropSubmenu(false); }}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Replace
+                      <ChevronRight className={`h-3 w-3 ml-auto transition-transform ${showReplaceSubmenu ? 'rotate-90' : ''}`} />
+                    </button>
+
+                    {/* Replace Submenu */}
+                    {showReplaceSubmenu && (
+                      <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                        <button
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                            darkMode ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          }`}
+                          onClick={() => {
+                            setReplaceTargetId(imageContextMenu.elementId);
+                            setIsPexelsOpen(true);
+                            setImageContextMenu(null);
+                            setShowReplaceSubmenu(false);
+                          }}
+                        >
+                          <Search className="h-3.5 w-3.5" />
+                          Stock Images
+                        </button>
+                        <button
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                            darkMode ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          }`}
+                          onClick={() => {
+                            setReplaceTargetId(imageContextMenu.elementId);
+                            replaceFileInputRef.current?.click();
+                            setImageContextMenu(null);
+                            setShowReplaceSubmenu(false);
+                          }}
+                        >
+                          <Upload className="h-3.5 w-3.5" />
+                          From Computer
+                        </button>
+                        <button
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                            darkMode ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          }`}
+                          onClick={() => {
+                            setReplaceTargetId(imageContextMenu.elementId);
+                            setIsContentPickerOpen(true);
+                            fetchContentAssets();
+                            setImageContextMenu(null);
+                            setShowReplaceSubmenu(false);
+                          }}
+                        >
+                          <FolderOpen className="h-3.5 w-3.5" />
+                          Content Library
+                        </button>
+                      </div>
+                    )}
+
+                    <div className={`h-px ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`} />
+
+                    {/* Crop Button */}
+                    <button
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${
+                        darkMode
+                          ? 'text-white hover:bg-gray-800'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                      onClick={() => { setShowCropSubmenu(!showCropSubmenu); setShowReplaceSubmenu(false); }}
+                    >
+                      <Crop className="h-4 w-4" />
+                      Crop to Shape
+                      <ChevronRight className={`h-3 w-3 ml-auto transition-transform ${showCropSubmenu ? 'rotate-90' : ''}`} />
+                    </button>
+
+                    {/* Crop Submenu */}
+                    {showCropSubmenu && (
+                      <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                        <div className="grid grid-cols-4 gap-1 p-2">
+                          {CROP_SHAPES.map((shape) => {
+                            const el = currentSlide.elements.find((e) => e.id === imageContextMenu.elementId);
+                            const isActive = shape.id === "none"
+                              ? !el?.cropShape || el?.cropShape === "none"
+                              : el?.cropShape === shape.id;
+                            return (
+                              <button
+                                key={shape.id}
+                                title={shape.label}
+                                className={`flex flex-col items-center justify-center p-2 rounded-lg text-xs transition-all ${
+                                  isActive
+                                    ? darkMode
+                                      ? 'bg-blue-600 text-white ring-1 ring-blue-400'
+                                      : 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
+                                    : darkMode
+                                      ? 'text-gray-300 hover:bg-gray-800'
+                                      : 'text-gray-600 hover:bg-gray-100'
+                                }`}
+                                onClick={() => applyCropShape(imageContextMenu.elementId, shape.id)}
+                              >
+                                <span className="text-lg leading-none mb-1">{shape.icon}</span>
+                                <span className="text-[9px] leading-tight">{shape.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1744,11 +2037,11 @@ export default function SlideEditorPage() {
         </div>
 
 
-        <Dialog open={isPexelsOpen} onOpenChange={setIsPexelsOpen}>
+        <Dialog open={isPexelsOpen} onOpenChange={(open) => { setIsPexelsOpen(open); if (!open) setReplaceTargetId(null); }}>
           <DialogContent className={`max-w-4xl max-h-[80vh] ${darkMode ? 'bg-gray-900 border-gray-700' : ''}`}>
             <DialogHeader>
-              <DialogTitle className={darkMode ? 'text-white' : ''}>Stock Images</DialogTitle>
-              <DialogDescription className={darkMode ? 'text-gray-400' : ''}>Search for free stock images from Pexels</DialogDescription>
+              <DialogTitle className={darkMode ? 'text-white' : ''}>{replaceTargetId ? 'Replace Image' : 'Stock Images'}</DialogTitle>
+              <DialogDescription className={darkMode ? 'text-gray-400' : ''}>{replaceTargetId ? 'Choose a new image to replace the current one' : 'Search for free stock images from Pexels'}</DialogDescription>
             </DialogHeader>
             <div className="flex gap-2 mb-4">
               <Input
@@ -1775,7 +2068,11 @@ export default function SlideEditorPage() {
                       key={photo.id}
                       className={`aspect-video cursor-pointer hover:ring-2 hover:ring-blue-500 rounded overflow-hidden`}
                       onClick={() => {
-                        addImage(photo.src.medium);
+                        if (replaceTargetId) {
+                          replaceImage(replaceTargetId, photo.src.medium);
+                        } else {
+                          addImage(photo.src.medium);
+                        }
                         setIsPexelsOpen(false);
                       }}
                     >
@@ -1784,6 +2081,55 @@ export default function SlideEditorPage() {
                         alt={photo.photographer}
                         className="w-full h-full object-cover"
                       />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+
+        {/* Content Library Picker Dialog */}
+        <Dialog open={isContentPickerOpen} onOpenChange={(open) => { setIsContentPickerOpen(open); if (!open) setReplaceTargetId(null); }}>
+          <DialogContent className={`max-w-4xl max-h-[80vh] ${darkMode ? 'bg-gray-900 border-gray-700' : ''}`}>
+            <DialogHeader>
+              <DialogTitle className={darkMode ? 'text-white' : ''}>Content Library</DialogTitle>
+              <DialogDescription className={darkMode ? 'text-gray-400' : ''}>Select an image from your uploaded content</DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="h-[400px]">
+              {isContentLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <p className={darkMode ? 'text-gray-400' : 'text-muted-foreground'}>Loading content...</p>
+                </div>
+              ) : contentAssets.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-32 gap-2">
+                  <FolderOpen className={`h-8 w-8 ${darkMode ? 'text-gray-600' : 'text-gray-300'}`} />
+                  <p className={darkMode ? 'text-gray-400' : 'text-muted-foreground'}>No images found in content library</p>
+                  <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-muted-foreground/70'}`}>Upload images via the Content section in your dashboard</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {contentAssets.map((asset: any) => (
+                    <div
+                      key={asset.id}
+                      className="aspect-video cursor-pointer hover:ring-2 hover:ring-blue-500 rounded overflow-hidden relative group"
+                      onClick={() => {
+                        if (replaceTargetId && asset.file_url) {
+                          replaceImage(replaceTargetId, asset.file_url);
+                        }
+                        setIsContentPickerOpen(false);
+                      }}
+                    >
+                      <img
+                        src={asset.file_url}
+                        alt={asset.name || 'Content image'}
+                        className="w-full h-full object-cover"
+                      />
+                      {asset.name && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity truncate">
+                          {asset.name}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
